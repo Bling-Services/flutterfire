@@ -86,18 +86,6 @@ class Firestore extends JsObjectWrapper<firestore_interop.FirestoreJsImpl> {
   DocumentReference doc(String documentPath) => DocumentReference.getInstance(
       firestore_interop.doc(jsObject as JSAny, documentPath.toJS));
 
-  Future<void> enablePersistence(
-      [firestore_interop.PersistenceSettings? settings]) {
-    if (settings != null && settings.synchronizeTabs.toDart == true) {
-      return firestore_interop
-          .enableMultiTabIndexedDbPersistence(jsObject)
-          .toDart;
-    }
-    return
-        // ignore: deprecated_member_use_from_same_package
-        firestore_interop.enableIndexedDbPersistence(jsObject).toDart;
-  }
-
 // purely for debug mode and tracking listeners to clean up on "hot restart"
   static final Map<String, int> _snapshotInSyncListeners = {};
   String _snapshotInSyncWindowsKey() {
@@ -731,8 +719,9 @@ class CollectionReference<T extends firestore_interop.CollectionReferenceJsImpl>
     return _expando[jsObject] ??= CollectionReference._fromJsObject(jsObject);
   }
 
-  factory CollectionReference() => CollectionReference._fromJsObject(
-      firestore_interop.CollectionReferenceJsImpl());
+  factory CollectionReference(
+          firestore_interop.CollectionReferenceJsImpl jsObject) =>
+      CollectionReference._fromJsObject(jsObject);
 
   CollectionReference._fromJsObject(
       firestore_interop.CollectionReferenceJsImpl jsObject)
@@ -742,8 +731,7 @@ class CollectionReference<T extends firestore_interop.CollectionReferenceJsImpl>
     final future =
         firestore_interop.addDoc(jsObject, jsify(data)! as JSObject).toDart;
     final result = await future;
-    return DocumentReference.getInstance(
-        (result)! as firestore_interop.DocumentReferenceJsImpl);
+    return DocumentReference.getInstance(result);
   }
 
   DocumentReference doc([String? documentPath]) {

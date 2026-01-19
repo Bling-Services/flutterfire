@@ -11,9 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import 'package:firebase_ai/firebase_ai.dart';
-import 'package:firebase_ai/src/api.dart';
 
+// ignore_for_file: deprecated_member_use_from_same_package
+import 'dart:convert';
+
+import 'package:firebase_ai/src/api.dart';
+import 'package:firebase_ai/src/content.dart';
+import 'package:firebase_ai/src/error.dart';
+import 'package:firebase_ai/src/schema.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // --- Mock/Helper Implementations ---
@@ -44,7 +49,7 @@ void main() {
     final candidateWithText =
         Candidate(textContent, null, null, FinishReason.stop, null);
     final candidateWithMultipleTextParts = Candidate(
-        Content('model', [TextPart('Hello'), TextPart(' World')]),
+        Content('model', [const TextPart('Hello'), const TextPart(' World')]),
         null,
         null,
         FinishReason.stop,
@@ -219,8 +224,8 @@ void main() {
       });
 
       test('concatenates text from multiple TextParts', () {
-        final multiPartContent =
-            Content('model', [TextPart('Part 1'), TextPart('. Part 2')]);
+        final multiPartContent = Content(
+            'model', [const TextPart('Part 1'), const TextPart('. Part 2')]);
         final candidate =
             Candidate(multiPartContent, null, null, FinishReason.stop, null);
         expect(candidate.text, 'Part 1. Part 2');
@@ -238,14 +243,17 @@ void main() {
         SafetyRating(HarmCategory.harassment, HarmProbability.low)
       ];
       final citationMeta = CitationMetadata([]);
+      final urlContextMetadata = UrlContextMetadata(urlMetadata: []);
       final candidate = Candidate(
-          content, ratings, citationMeta, FinishReason.stop, 'Finished');
+          content, ratings, citationMeta, FinishReason.stop, 'Finished',
+          urlContextMetadata: urlContextMetadata);
 
       expect(candidate.content, same(content));
       expect(candidate.safetyRatings, same(ratings));
       expect(candidate.citationMetadata, same(citationMeta));
       expect(candidate.finishReason, FinishReason.stop);
       expect(candidate.finishMessage, 'Finished');
+      expect(candidate.urlContextMetadata, same(urlContextMetadata));
     });
   });
 
@@ -305,6 +313,8 @@ void main() {
       expect(FinishReason.maxTokens.toJson(), 'MAX_TOKENS');
       expect(FinishReason.safety.toJson(), 'SAFETY');
       expect(FinishReason.recitation.toJson(), 'RECITATION');
+      expect(FinishReason.malformedFunctionCall.toJson(),
+          'MALFORMED_FUNCTION_CALL');
       expect(FinishReason.other.toJson(), 'OTHER');
     });
 
@@ -389,6 +399,46 @@ void main() {
     });
   });
 
+  group('GroundingMetadata', () {
+    test('constructor initializes fields correctly', () {
+      final searchEntryPoint = SearchEntryPoint(renderedContent: '<div></div>');
+      final groundingChunk = GroundingChunk(web: WebGroundingChunk(uri: 'uri'));
+      final groundingSupport = GroundingSupport(
+          segment: Segment(startIndex: 0, partIndex: 0, endIndex: 1, text: ''),
+          groundingChunkIndices: [0]);
+      final metadata = GroundingMetadata(
+        searchEntryPoint: searchEntryPoint,
+        groundingChunks: [groundingChunk],
+        groundingSupport: [groundingSupport],
+        webSearchQueries: ['web query'],
+      );
+
+      expect(metadata.searchEntryPoint, same(searchEntryPoint));
+      expect(metadata.groundingChunks.first, same(groundingChunk));
+      expect(metadata.groundingSupport.first, same(groundingSupport));
+      expect(metadata.webSearchQueries, ['web query']);
+    });
+  });
+
+  group('UrlContextMetadata', () {
+    test('UrlMetadata constructor', () {
+      final uri = Uri.parse('http://example.com/page');
+      final metadata = UrlMetadata(
+          retrievedUrl: uri, urlRetrievalStatus: UrlRetrievalStatus.success);
+      expect(metadata.retrievedUrl, uri);
+      expect(metadata.urlRetrievalStatus, UrlRetrievalStatus.success);
+    });
+
+    test('UrlContextMetadata constructor', () {
+      final urlMetadata = UrlMetadata(
+          retrievedUrl: Uri.parse('http://example.com'),
+          urlRetrievalStatus: UrlRetrievalStatus.success);
+      final contextMetadata = UrlContextMetadata(urlMetadata: [urlMetadata]);
+      expect(contextMetadata.urlMetadata, hasLength(1));
+      expect(contextMetadata.urlMetadata.first, same(urlMetadata));
+    });
+  });
+
   group('GenerationConfig & BaseGenerationConfig', () {
     test('GenerationConfig toJson with all fields', () {
       final schema = Schema.object(properties: {});
@@ -421,6 +471,38 @@ void main() {
       });
     });
 
+    test('GenerationConfig toJson with responseJsonSchema', () {
+      final jsonSchema = {
+        'type': 'object',
+        'properties': {
+          'recipeName': {'type': 'string'}
+        },
+        'required': ['recipeName']
+      };
+      final config = GenerationConfig(
+        responseMimeType: 'application/json',
+        responseJsonSchema: jsonSchema,
+      );
+      final json = config.toJson();
+      expect(json['responseMimeType'], 'application/json');
+      final dynamic responseSchema = json['responseJsonSchema'];
+      expect(responseSchema, isA<Map<String, Object?>>());
+      expect(responseSchema, equals(jsonSchema));
+    });
+
+    test(
+        'throws assertion if both responseSchema and responseJsonSchema are provided',
+        () {
+      final schema = Schema.object(properties: {});
+      final jsonSchema =
+          (json.decode('{"type": "string", "title": "MyString"}') as Map)
+              .cast<String, Object?>();
+      expect(
+          () => GenerationConfig(
+              responseSchema: schema, responseJsonSchema: jsonSchema),
+          throwsA(isA<AssertionError>()));
+    });
+
     test('GenerationConfig toJson with empty stopSequences (omitted)', () {
       final config = GenerationConfig(stopSequences: []);
       expect(config.toJson(), {}); // Empty list for stopSequences is omitted
@@ -446,11 +528,27 @@ void main() {
   group('ThinkingConfig', () {
     test('toJson with thinkingBudget set', () {
       final config = ThinkingConfig(thinkingBudget: 123);
+
       expect(config.toJson(), {'thinkingBudget': 123});
     });
 
-    test('toJson with thinkingBudget null', () {
+    test('toJson with thinkingLevel set', () {
+      final config = ThinkingConfig.withThinkingLevel(ThinkingLevel.high,
+          includeThoughts: true);
+
+      expect(
+          config.toJson(), {'thinkingLevel': 'HIGH', 'includeThoughts': true});
+    });
+
+    test('toJson with includeThoughts set', () {
+      final config = ThinkingConfig(includeThoughts: true);
+
+      expect(config.toJson(), {'includeThoughts': true});
+    });
+
+    test('toJson with thinkingBudget and thinkingLevel null', () {
       final config = ThinkingConfig();
+
       // Expecting the key to be absent or the value to be explicitly null,
       // depending on implementation. Current implementation omits the key.
       expect(config.toJson(), {});
@@ -458,10 +556,53 @@ void main() {
 
     test('constructor initializes thinkingBudget', () {
       final config = ThinkingConfig(thinkingBudget: 456);
-      expect(config.thinkingBudget, 456);
 
-      final configNull = ThinkingConfig();
-      expect(configNull.thinkingBudget, isNull);
+      expect(config.thinkingBudget, 456);
+      expect(config.thinkingLevel, isNull);
+      expect(config.includeThoughts, isNull);
+    });
+
+    test('constructor initializes thinkingLevel', () {
+      final config = ThinkingConfig(thinkingLevel: ThinkingLevel.low);
+
+      expect(config.thinkingBudget, isNull);
+      expect(config.thinkingLevel, ThinkingLevel.low);
+      expect(config.includeThoughts, isNull);
+    });
+
+    test('constructor initializes includeThoughts', () {
+      final config = ThinkingConfig(includeThoughts: true);
+
+      expect(config.thinkingBudget, isNull);
+      expect(config.thinkingLevel, isNull);
+      expect(config.includeThoughts, isTrue);
+    });
+
+    test('withThinkingBudget factory initializes correctly', () {
+      final config =
+          ThinkingConfig.withThinkingBudget(789, includeThoughts: false);
+
+      expect(config.thinkingBudget, 789);
+      expect(config.thinkingLevel, isNull);
+      expect(config.includeThoughts, isFalse);
+    });
+
+    test('withThinkingLevel factory initializes correctly', () {
+      final config = ThinkingConfig.withThinkingLevel(ThinkingLevel.medium,
+          includeThoughts: true);
+
+      expect(config.thinkingBudget, isNull);
+      expect(config.thinkingLevel, ThinkingLevel.medium);
+      expect(config.includeThoughts, isTrue);
+    });
+
+    test(
+        'deprecated constructor throws AssertionError if both thinkingBudget and thinkingLevel are provided',
+        () {
+      expect(
+          () => ThinkingConfig(
+              thinkingBudget: 100, thinkingLevel: ThinkingLevel.high),
+          throwsA(isA<AssertionError>()));
     });
   });
 
@@ -594,6 +735,523 @@ void main() {
         expect(response.usageMetadata!.candidatesTokensDetails, hasLength(1));
       });
 
+      group('usageMetadata parsing', () {
+        test('parses usageMetadata when thoughtsTokenCount is set', () {
+          final json = {
+            'usageMetadata': {
+              'promptTokenCount': 10,
+              'candidatesTokenCount': 20,
+              'totalTokenCount': 30,
+              'thoughtsTokenCount': 5,
+              'toolUsePromptTokenCount': 12
+            }
+          };
+          final response =
+              VertexSerialization().parseGenerateContentResponse(json);
+          expect(response.usageMetadata, isNotNull);
+          expect(response.usageMetadata!.promptTokenCount, 10);
+          expect(response.usageMetadata!.candidatesTokenCount, 20);
+          expect(response.usageMetadata!.totalTokenCount, 30);
+          expect(response.usageMetadata!.thoughtsTokenCount, 5);
+          expect(response.usageMetadata!.toolUsePromptTokenCount, 12);
+        });
+
+        test('parses usageMetadata when thoughtsTokenCount is missing', () {
+          final json = {
+            'usageMetadata': {
+              'promptTokenCount': 10,
+              'candidatesTokenCount': 20,
+              'totalTokenCount': 30,
+            }
+          };
+          final response =
+              VertexSerialization().parseGenerateContentResponse(json);
+          expect(response.usageMetadata, isNotNull);
+          expect(response.usageMetadata!.thoughtsTokenCount, isNull);
+        });
+      });
+
+      group('groundingMetadata parsing', () {
+        test('parses valid response with full grounding metadata', () {
+          final jsonResponse = {
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {'text': 'This is a grounded response.'}
+                  ]
+                },
+                'finishReason': 'STOP',
+                'groundingMetadata': {
+                  'webSearchQueries': ['query1', 'query2'],
+                  'searchEntryPoint': {'renderedContent': '<div></div>'},
+                  'groundingChunks': [
+                    {
+                      'web': {
+                        'uri': 'http://example.com/1',
+                        'title': 'Example Page 1',
+                      }
+                    }
+                  ],
+                  'groundingSupport': [
+                    {
+                      'segment': {
+                        'startIndex': 5,
+                        'endIndex': 13,
+                        'text': 'grounded'
+                      },
+                      'groundingChunkIndices': [0],
+                    }
+                  ]
+                }
+              }
+            ]
+          };
+
+          final response =
+              VertexSerialization().parseGenerateContentResponse(jsonResponse);
+          final groundingMetadata = response.candidates.first.groundingMetadata;
+
+          expect(groundingMetadata, isNotNull);
+          expect(groundingMetadata!.webSearchQueries,
+              equals(['query1', 'query2']));
+          expect(groundingMetadata.searchEntryPoint?.renderedContent,
+              '<div></div>');
+
+          final groundingChunk = groundingMetadata.groundingChunks.first;
+          expect(groundingChunk.web?.uri, 'http://example.com/1');
+          expect(groundingChunk.web?.title, 'Example Page 1');
+          expect(groundingChunk.web?.domain, isNull);
+
+          final groundingSupport = groundingMetadata.groundingSupport.first;
+          expect(groundingSupport.segment.startIndex, 5);
+          expect(groundingSupport.segment.endIndex, 13);
+          expect(groundingSupport.segment.partIndex, 0);
+          expect(groundingSupport.segment.text, 'grounded');
+          expect(groundingSupport.groundingChunkIndices, [0]);
+        });
+
+        test('parses with empty or minimal grounding sub-components', () {
+          final jsonResponse = {
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {'text': 'This is a grounded response.'}
+                  ]
+                },
+                'finishReason': 'STOP',
+                'groundingMetadata': {
+                  'webSearchQueries': ['query1', 'query2'],
+                  'groundingChunks': [
+                    {},
+                    {'web': {}},
+                  ],
+                  'groundingSupport': [
+                    {},
+                    {
+                      'groundingChunkIndices': [0],
+                    },
+                    {
+                      'groundingChunkIndices': [0],
+                      'segment': {
+                        'startIndex': 5,
+                        'partIndex': 0,
+                        'endIndex': 13,
+                        'text': 'grounded'
+                      },
+                    }
+                  ]
+                }
+              }
+            ]
+          };
+
+          final response =
+              VertexSerialization().parseGenerateContentResponse(jsonResponse);
+          final groundingMetadata = response.candidates.first.groundingMetadata;
+
+          expect(groundingMetadata, isNotNull);
+          expect(groundingMetadata!.webSearchQueries,
+              equals(['query1', 'query2']));
+
+          expect(groundingMetadata.searchEntryPoint, isNull);
+          expect(groundingMetadata.groundingChunks[0].web, isNull);
+
+          expect(groundingMetadata.groundingChunks[1].web, isNotNull);
+          expect(groundingMetadata.groundingChunks[1].web?.uri, isNull);
+          expect(groundingMetadata.groundingChunks[1].web?.title, isNull);
+          expect(groundingMetadata.groundingChunks[1].web?.domain, isNull);
+
+          expect(
+              groundingMetadata.groundingSupport,
+              hasLength(
+                  1)); // GroundingSupport's without a segment are filtered out
+          final firstSupport = groundingMetadata.groundingSupport[0];
+          expect(firstSupport.segment, isNotNull);
+          expect(firstSupport.groundingChunkIndices, isNotEmpty);
+        });
+
+        test(
+            'throws FormatException if renderedContent is missing in searchEntryPoint',
+            () {
+          final jsonResponse = {
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {'text': 'This is a grounded response.'}
+                  ]
+                },
+                'finishReason': 'STOP',
+                'groundingMetadata': {'searchEntryPoint': {}}
+              }
+            ]
+          };
+
+          expect(
+              () => VertexSerialization()
+                  .parseGenerateContentResponse(jsonResponse),
+              throwsA(isA<FirebaseAISdkException>().having(
+                  (e) => e.message, 'message', contains('SearchEntryPoint'))));
+        });
+
+        test(
+            'parses groundingMetadata with all optional fields null/missing and empty lists',
+            () {
+          final jsonResponse = {
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {'text': 'Test'}
+                  ]
+                },
+                'finishReason': 'STOP',
+                'groundingMetadata': {
+                  // searchEntryPoint is missing
+                  // groundingChunks is missing (defaults to [])
+                  // groundingSupport is missing (defaults to [])
+                  // webSearchQueries is missing (defaults to [])
+                }
+              }
+            ]
+          };
+          final response =
+              VertexSerialization().parseGenerateContentResponse(jsonResponse);
+          final groundingMetadata = response.candidates.first.groundingMetadata;
+
+          expect(groundingMetadata, isNotNull);
+          expect(groundingMetadata!.searchEntryPoint, isNull);
+          expect(groundingMetadata.groundingChunks, isEmpty);
+          expect(groundingMetadata.groundingSupport, isEmpty);
+          expect(groundingMetadata.webSearchQueries, isEmpty);
+        });
+
+        test('throws FormatException for invalid item in groundingChunks', () {
+          final json = {
+            'candidates': [
+              {
+                'groundingMetadata': {
+                  'groundingChunks': ['not_a_map']
+                }
+              }
+            ]
+          };
+          expect(
+              () => VertexSerialization().parseGenerateContentResponse(json),
+              throwsA(isA<FirebaseAISdkException>().having(
+                  (e) => e.message, 'message', contains('GroundingChunk'))));
+        });
+
+        test('throws FormatException for invalid item in groundingSupport', () {
+          final json = {
+            'candidates': [
+              {
+                'groundingMetadata': {
+                  'groundingSupport': ['not_a_map']
+                }
+              }
+            ]
+          };
+          expect(
+              () => VertexSerialization().parseGenerateContentResponse(json),
+              throwsA(isA<FirebaseAISdkException>().having(
+                  (e) => e.message, 'message', contains('GroundingSupport'))));
+        });
+
+        test('throws FormatException for invalid searchEntryPoint structure',
+            () {
+          final json = {
+            'candidates': [
+              {
+                'groundingMetadata': {'searchEntryPoint': 'not_a_map'}
+              }
+            ]
+          };
+          expect(
+              () => VertexSerialization().parseGenerateContentResponse(json),
+              throwsA(isA<FirebaseAISdkException>().having(
+                  (e) => e.message, 'message', contains('SearchEntryPoint'))));
+        });
+
+        test(
+            'throws FormatException for invalid segment structure in groundingSupport',
+            () {
+          final json = {
+            'candidates': [
+              {
+                'groundingMetadata': {
+                  'groundingSupport': [
+                    {'segment': 'not_a_map'}
+                  ]
+                }
+              }
+            ]
+          };
+          expect(
+              () => VertexSerialization().parseGenerateContentResponse(json),
+              throwsA(isA<FirebaseAISdkException>()
+                  .having((e) => e.message, 'message', contains('Segment'))));
+        });
+
+        test(
+            'throws FormatException for invalid web structure in groundingChunk',
+            () {
+          final json = {
+            'candidates': [
+              {
+                'groundingMetadata': {
+                  'groundingChunks': [
+                    {'web': 'not_a_map'}
+                  ]
+                }
+              }
+            ]
+          };
+          expect(
+              () => VertexSerialization().parseGenerateContentResponse(json),
+              throwsA(isA<FirebaseAISdkException>().having(
+                  (e) => e.message, 'message', contains('WebGroundingChunk'))));
+        });
+
+        test('parses malformedFunctionCall finishReason', () {
+          final jsonResponse = {
+            'candidates': [
+              {'finishReason': 'MALFORMED_FUNCTION_CALL'}
+            ]
+          };
+          final response =
+              VertexSerialization().parseGenerateContentResponse(jsonResponse);
+          expect(response.candidates.first.finishReason,
+              FinishReason.malformedFunctionCall);
+        });
+
+        test(
+            'parses groundingSupport and filters out entries without a segment',
+            () {
+          final jsonResponse = {
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {'text': 'Test'}
+                  ]
+                },
+                'finishReason': 'STOP',
+                'groundingMetadata': {
+                  'groundingSupport': [
+                    // Valid entry
+                    {
+                      'segment': {
+                        'startIndex': 0,
+                        'endIndex': 4,
+                        'text': 'Test'
+                      },
+                      'groundingChunkIndices': [0]
+                    },
+                    // Invalid entry - missing segment
+                    {
+                      'groundingChunkIndices': [1]
+                    },
+                    // Invalid entry - empty object
+                    {}
+                  ]
+                }
+              }
+            ]
+          };
+
+          final response =
+              VertexSerialization().parseGenerateContentResponse(jsonResponse);
+          final groundingMetadata = response.candidates.first.groundingMetadata;
+
+          expect(groundingMetadata, isNotNull);
+          // The invalid entries should be filtered out.
+          expect(groundingMetadata!.groundingSupport, hasLength(1));
+
+          final validSupport = groundingMetadata.groundingSupport.first;
+          expect(validSupport.segment.text, 'Test');
+          expect(validSupport.groundingChunkIndices, [0]);
+        });
+      });
+
+      group('UrlContextMetadata parsing', () {
+        test('parses valid response with full url context metadata', () {
+          final jsonResponse = {
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {'text': 'Some text'}
+                  ]
+                },
+                'finishReason': 'STOP',
+                'urlContextMetadata': {
+                  'urlMetadata': [
+                    {
+                      'retrievedUrl': 'https://example.com',
+                      'urlRetrievalStatus': 'URL_RETRIEVAL_STATUS_SUCCESS'
+                    }
+                  ]
+                }
+              }
+            ]
+          };
+          final response =
+              VertexSerialization().parseGenerateContentResponse(jsonResponse);
+          final urlContextMetadata =
+              response.candidates.first.urlContextMetadata;
+          expect(urlContextMetadata, isNotNull);
+          expect(urlContextMetadata!.urlMetadata, hasLength(1));
+          final urlMetadata = urlContextMetadata.urlMetadata.first;
+          expect(urlMetadata.retrievedUrl, Uri.parse('https://example.com'));
+          expect(urlMetadata.urlRetrievalStatus, UrlRetrievalStatus.success);
+        });
+
+        test(
+            'parses valid response with full url context metadata and list of url metadata',
+            () {
+          final jsonResponse = {
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {'text': 'Some text'}
+                  ]
+                },
+                'finishReason': 'STOP',
+                'urlContextMetadata': {
+                  'urlMetadata': [
+                    {
+                      'retrievedUrl': 'https://example.com',
+                      'urlRetrievalStatus': 'URL_RETRIEVAL_STATUS_SUCCESS'
+                    },
+                    {
+                      'retrievedUrl': 'https://foo.com',
+                      'urlRetrievalStatus': 'URL_RETRIEVAL_STATUS_ERROR'
+                    }
+                  ]
+                }
+              }
+            ]
+          };
+          final response =
+              VertexSerialization().parseGenerateContentResponse(jsonResponse);
+          final urlContextMetadata =
+              response.candidates.first.urlContextMetadata;
+          expect(urlContextMetadata, isNotNull);
+          expect(urlContextMetadata!.urlMetadata, hasLength(2));
+          final firstUrlMetadata = urlContextMetadata.urlMetadata.first;
+          expect(
+              firstUrlMetadata.retrievedUrl, Uri.parse('https://example.com'));
+          expect(
+              firstUrlMetadata.urlRetrievalStatus, UrlRetrievalStatus.success);
+          final secondUrlMetadata = urlContextMetadata.urlMetadata[1];
+          expect(secondUrlMetadata.retrievedUrl, Uri.parse('https://foo.com'));
+          expect(
+              secondUrlMetadata.urlRetrievalStatus, UrlRetrievalStatus.error);
+        });
+
+        test('parses response with missing retrievedUrl', () {
+          final jsonResponse = {
+            'candidates': [
+              {
+                'urlContextMetadata': {
+                  'urlMetadata': [
+                    {'urlRetrievalStatus': 'URL_RETRIEVAL_STATUS_ERROR'}
+                  ]
+                }
+              }
+            ]
+          };
+          final response =
+              VertexSerialization().parseGenerateContentResponse(jsonResponse);
+          final urlMetadata =
+              response.candidates.first.urlContextMetadata!.urlMetadata.first;
+          expect(urlMetadata.retrievedUrl, isNull);
+          expect(urlMetadata.urlRetrievalStatus, UrlRetrievalStatus.error);
+        });
+
+        test('handles empty urlMetadata list', () {
+          final jsonResponse = {
+            'candidates': [
+              {
+                'urlContextMetadata': {'urlMetadata': []}
+              }
+            ]
+          };
+          final response =
+              VertexSerialization().parseGenerateContentResponse(jsonResponse);
+          final urlContextMetadata =
+              response.candidates.first.urlContextMetadata;
+          expect(urlContextMetadata, isNotNull);
+          expect(urlContextMetadata!.urlMetadata, isEmpty);
+        });
+
+        test('handles missing urlContextMetadata field', () {
+          final jsonResponse = {
+            'candidates': [
+              {'finishReason': 'STOP'}
+            ]
+          };
+          final response =
+              VertexSerialization().parseGenerateContentResponse(jsonResponse);
+          final candidate = response.candidates.first;
+          expect(candidate.urlContextMetadata, isNull);
+        });
+
+        test('throws for invalid urlContextMetadata structure', () {
+          final jsonResponse = {
+            'candidates': [
+              {'urlContextMetadata': 'not_a_map'}
+            ]
+          };
+          expect(
+              () => VertexSerialization()
+                  .parseGenerateContentResponse(jsonResponse),
+              throwsA(isA<FirebaseAISdkException>().having((e) => e.message,
+                  'message', contains('UrlContextMetadata'))));
+        });
+
+        test('throws for invalid urlMetadata item in list', () {
+          final jsonResponse = {
+            'candidates': [
+              {
+                'urlContextMetadata': {
+                  'urlMetadata': ['not_a_map']
+                }
+              }
+            ]
+          };
+          expect(
+              () => VertexSerialization()
+                  .parseGenerateContentResponse(jsonResponse),
+              throwsA(isA<FirebaseAISdkException>().having(
+                  (e) => e.message, 'message', contains('UrlMetadata'))));
+        });
+      });
+
       test('parses JSON with no candidates (empty list)', () {
         final json = {'candidates': []};
         final response =
@@ -650,6 +1308,9 @@ void main() {
                 'modality': 'TEXT',
               }
             ],
+            'toolUsePromptTokensDetails': [
+              {'modality': 'TEXT', 'tokenCount': 12}
+            ],
           }
         };
         final response =
@@ -675,6 +1336,15 @@ void main() {
         expect(
             response.usageMetadata!.candidatesTokensDetails!.first.tokenCount,
             0);
+        expect(
+            response.usageMetadata!.toolUsePromptTokensDetails, hasLength(1));
+        expect(
+            response.usageMetadata!.toolUsePromptTokensDetails!.first.modality,
+            ContentModality.text);
+        expect(
+            response
+                .usageMetadata!.toolUsePromptTokensDetails!.first.tokenCount,
+            12);
       });
 
       test('parses citationMetadata with "citationSources"', () {

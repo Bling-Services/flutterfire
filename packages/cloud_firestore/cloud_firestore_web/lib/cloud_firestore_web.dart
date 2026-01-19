@@ -25,9 +25,13 @@ import 'src/query_web.dart';
 import 'src/transaction_web.dart';
 import 'src/write_batch_web.dart';
 
+import 'src/cloud_firestore_version.dart';
+
 /// Web implementation for [FirebaseFirestorePlatform]
 /// delegates calls to firestore web plugin
 class FirebaseFirestoreWeb extends FirebaseFirestorePlatform {
+  static const String _libraryName = 'flutter-fire-fst';
+
   /// instance of Firestore from the web plugin
   firestore_interop.Firestore? _webFirestore;
 
@@ -41,6 +45,8 @@ class FirebaseFirestoreWeb extends FirebaseFirestorePlatform {
 
   /// Called by PluginRegistry to register this plugin for Flutter Web
   static void registerWith(Registrar registrar) {
+    FirebaseCoreWeb.registerLibraryVersion(_libraryName, packageVersion);
+
     FirebaseCoreWeb.registerService('firestore');
     FirebaseFirestorePlatform.instance = FirebaseFirestoreWeb();
   }
@@ -187,22 +193,6 @@ class FirebaseFirestoreWeb extends FirebaseFirestorePlatform {
       _interopSettings?.experimentalLongPollingOptions =
           experimentalLongPollingOptions;
     }
-  }
-
-  /// Enable persistence of Firestore data.
-  @override
-  Future<void> enablePersistence([PersistenceSettings? persistenceSettings]) {
-    _settings = _settings.copyWith(persistenceEnabled: true);
-    if (persistenceSettings != null) {
-      firestore_interop.PersistenceSettings interopSettings =
-          firestore_interop.PersistenceSettings(
-              synchronizeTabs: persistenceSettings.synchronizeTabs.toJS);
-
-      return convertWebExceptions(
-          () => _delegate.enablePersistence(interopSettings));
-    }
-
-    return convertWebExceptions(_delegate.enablePersistence);
   }
 
   @override

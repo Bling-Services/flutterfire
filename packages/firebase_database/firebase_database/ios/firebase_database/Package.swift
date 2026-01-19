@@ -14,8 +14,10 @@ enum ConfigurationError: Error {
   case invalidFormat(String)
 }
 
-let databaseDirectory = String(URL(string: #file)!.deletingLastPathComponent().absoluteString
-  .dropLast())
+let databaseDirectory = String(
+  URL(string: #file)!.deletingLastPathComponent().absoluteString
+    .dropLast()
+)
 
 func loadFirebaseSDKVersion() throws -> String {
   let firebaseCoreScriptPath = NSString.path(withComponents: [
@@ -28,7 +30,8 @@ func loadFirebaseSDKVersion() throws -> String {
       .trimmingCharacters(in: .whitespacesAndNewlines)
     return version
   } catch {
-    throw ConfigurationError
+    throw
+      ConfigurationError
       .fileNotFound("Error loading or parsing generated_firebase_sdk_version.txt: \(error)")
   }
 }
@@ -48,7 +51,8 @@ func loadPubspecVersions() throws -> (packageVersion: String, firebaseCoreVersio
     packageVersion = packageVersion.replacingOccurrences(of: "^", with: "")
 
     guard let firebaseCoreVersionLine = lines.first(where: { $0.contains("firebase_core:") }) else {
-      throw ConfigurationError
+      throw
+        ConfigurationError
         .invalidFormat("No firebase_core dependency version line found in pubspec.yaml")
     }
     var firebaseCoreVersion = firebaseCoreVersionLine.split(separator: ":")[1]
@@ -85,7 +89,7 @@ guard let shared_spm_version = Version("\(firebase_core_version_string)\(shared_
 let package = Package(
   name: "firebase_database",
   platforms: [
-    .iOS("13.0"),
+    .iOS("15.0"),
   ],
   products: [
     .library(name: "firebase-database", targets: ["firebase_database"]),

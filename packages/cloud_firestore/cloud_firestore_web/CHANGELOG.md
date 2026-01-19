@@ -1,3 +1,35 @@
+## 5.1.1
+
+ - Update a dependency to the latest release.
+
+## 5.1.0
+
+ - **FIX**(firestore,web): More explicit interop types ([#17818](https://github.com/firebase/flutterfire/issues/17818)). ([8ceb461c](https://github.com/firebase/flutterfire/commit/8ceb461cb4f887bc2b1a36151188135ae1189f88))
+ - **FEAT**(web): add `registerVersion` support for packages ([#17780](https://github.com/firebase/flutterfire/issues/17780)). ([3c8c83d4](https://github.com/firebase/flutterfire/commit/3c8c83d4251f2965ae6fb1fe7b64c21dcb94e9ec))
+
+## 5.0.3
+
+ - Update a dependency to the latest release.
+
+## 5.0.2
+
+ - Update a dependency to the latest release.
+
+## 5.0.1
+
+ - Update a dependency to the latest release.
+
+## 5.0.0
+
+> Note: This release has breaking changes.
+
+ - **BREAKING** **FEAT**: bump iOS SDK to version 12.0.0 ([#17549](https://github.com/firebase/flutterfire/issues/17549)). ([b2619e68](https://github.com/firebase/flutterfire/commit/b2619e685fec897513483df1d7be347b64f95606))
+ - **BREAKING** **FEAT**(firestore): remove deprecated functions ([#17559](https://github.com/firebase/flutterfire/issues/17559)). ([67017fd6](https://github.com/firebase/flutterfire/commit/67017fd6f139080cec7ecd1b4d75a05f13f238fa))
+
+## 4.4.12
+
+ - Update a dependency to the latest release.
+
 ## 4.4.11
 
  - Update a dependency to the latest release.

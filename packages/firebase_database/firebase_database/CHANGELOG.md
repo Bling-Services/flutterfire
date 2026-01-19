@@ -1,3 +1,40 @@
+## 12.1.1
+
+ - **FIX**(database,android): improve type handling for startAt query modifier and add test for numeric startAt ([#17880](https://github.com/firebase/flutterfire/issues/17880)). ([bbb2895c](https://github.com/firebase/flutterfire/commit/bbb2895cc7d47ebb081b4fd8db186d0e8408da49))
+ - **FIX**(database,Android): resolve limit modifier type casting ([#17867](https://github.com/firebase/flutterfire/issues/17867)). ([20152819](https://github.com/firebase/flutterfire/commit/20152819c6cd5d648718f266f80adeeb79fa5e97))
+ - **FIX**(database): properly dispose event channel stream handler ([#17864](https://github.com/firebase/flutterfire/issues/17864)). ([0f9c4450](https://github.com/firebase/flutterfire/commit/0f9c44501cbcdb89963fd292fe595b24b83fdfe0))
+
+## 12.1.0
+
+ - **FEAT**(database): add support for Pigeon. Update iOS to Swift and Android to Kotlin ([#17686](https://github.com/firebase/flutterfire/issues/17686)). ([dac0b0bd](https://github.com/firebase/flutterfire/commit/dac0b0bd033b1c51446aedf0413740ef426877b8))
+
+## 12.0.4
+
+ - Update a dependency to the latest release.
+
+## 12.0.3
+
+ - Update a dependency to the latest release.
+
+## 12.0.2
+
+ - Update a dependency to the latest release.
+
+## 12.0.1
+
+ - Update a dependency to the latest release.
+
+## 12.0.0
+
+> Note: This release has breaking changes.
+
+ - **BREAKING** **FEAT**: bump iOS SDK to version 12.0.0 ([#17549](https://github.com/firebase/flutterfire/issues/17549)). ([b2619e68](https://github.com/firebase/flutterfire/commit/b2619e685fec897513483df1d7be347b64f95606))
+ - **BREAKING** **FEAT**: bump Android SDK to version 34.0.0 ([#17554](https://github.com/firebase/flutterfire/issues/17554)). ([a5bdc051](https://github.com/firebase/flutterfire/commit/a5bdc051d40ee44e39cf0b8d2a7801bc6f618b67))
+
+## 11.3.10
+
+ - Update a dependency to the latest release.
+
 ## 11.3.9
 
  - Update a dependency to the latest release.
