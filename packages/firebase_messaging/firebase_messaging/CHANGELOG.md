@@ -1,3 +1,29 @@
+## 16.2.2
+
+ - Update a dependency to the latest release.
+
+## 16.2.1
+
+ - **REFACTOR**: move all packages to workspace ([#18182](https://github.com/firebase/flutterfire/issues/18182)). ([6cdfcb10](https://github.com/firebase/flutterfire/commit/6cdfcb103da7be46ccb190d7e107d8c537aa1ff8))
+ - **FIX**(messaging,android): fix call race that could happen when using requestPermission ([#18256](https://github.com/firebase/flutterfire/issues/18256)). ([57d4c3d0](https://github.com/firebase/flutterfire/commit/57d4c3d050c6a9252390de6cac91a0ca1d5461e3))
+
+## 16.2.0
+
+ - **FEAT**: use local firebase_core instead of remote SPM dependency ([#18141](https://github.com/firebase/flutterfire/issues/18141)). ([995caf40](https://github.com/firebase/flutterfire/commit/995caf400df80c0fde7151c651ccc6c0f756e381))
+
+## 16.1.3
+
+ - **FIX**(messaging,ios): fix an issue where the scene initializer could be called twice in latest Flutter versions ([#18051](https://github.com/firebase/flutterfire/issues/18051)). ([5b602105](https://github.com/firebase/flutterfire/commit/5b602105faf9f64ac977a4266de5ee10785330bd))
+ - **DOCS**(messaging): update documentation for setForegroundNotificationPresentationOptions to clarify persistence of options ([#18107](https://github.com/firebase/flutterfire/issues/18107)). ([02777d70](https://github.com/firebase/flutterfire/commit/02777d70bb587895cb789dd1b520a2feaaaf32b1))
+
+## 16.1.2
+
+ - Update a dependency to the latest release.
+
+## 16.1.1
+
+ - **FIX**(messaging,iOS): scope iOS 18 duplicate notification workaround to iOS 18.0 only ([#17932](https://github.com/firebase/flutterfire/issues/17932)). ([c78f56ea](https://github.com/firebase/flutterfire/commit/c78f56ea0fd0d5ba0b565a11cbf9acce73f93401))
+
 ## 16.1.0
 
  - **FIX**(messaging,iOS): refactor notification handling in scene delegate methods ([#17905](https://github.com/firebase/flutterfire/issues/17905)). ([6fd8929b](https://github.com/firebase/flutterfire/commit/6fd8929b667df23eed21df288c9f8d8f213ea8ad))

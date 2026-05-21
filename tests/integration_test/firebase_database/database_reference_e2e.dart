@@ -13,15 +13,10 @@ import 'firebase_database_e2e_test.dart';
 
 void setupDatabaseReferenceTests() {
   group('DatabaseReference', () {
-    late DatabaseReference ref;
-
-    setUp(() async {
-      ref = database.ref('tests');
-      await ref.remove();
-    });
-
     group('set()', () {
       test('sets value', () async {
+        final ref = database.ref('tests/set-value');
+        await ref.remove();
         final v = Random.secure().nextInt(1024);
         await ref.set(v);
         final actual = await ref.get();
@@ -55,6 +50,8 @@ void setupDatabaseReferenceTests() {
       );
 
       test('removes a value if set to null', () async {
+        final ref = database.ref('tests/set-null');
+        await ref.remove();
         final v = Random.secure().nextInt(1024);
         await ref.set(v);
         final before = await ref.get();
@@ -69,6 +66,8 @@ void setupDatabaseReferenceTests() {
 
     group('setPriority()', () {
       test('sets a priority', () async {
+        final ref = database.ref('tests/set-priority');
+        await ref.remove();
         await ref.set('foo');
         await ref.setPriority(2);
         final snapshot = await ref.get();
@@ -78,6 +77,8 @@ void setupDatabaseReferenceTests() {
 
     group('setWithPriority()', () {
       test('sets a non-null value with a non-null priority', () async {
+        final ref = database.ref('tests/set-with-priority');
+        await ref.remove();
         await Future.wait([
           ref.child('first').setWithPriority(1, 10),
           ref.child('second').setWithPriority(2, 1),
@@ -92,6 +93,8 @@ void setupDatabaseReferenceTests() {
 
     group('update()', () {
       test('updates value at given location', () async {
+        final ref = database.ref('tests/update');
+        await ref.remove();
         await ref.set({'foo': 'bar'});
         final newValue = Random.secure().nextInt(255) + 1;
         await ref.update({'bar': newValue});
@@ -105,11 +108,8 @@ void setupDatabaseReferenceTests() {
     });
 
     group('runTransaction()', () {
-      setUp(() async {
-        await ref.set(0);
-      });
-
       test('aborts a transaction', () async {
+        final ref = database.ref('tests/transaction-abort');
         await ref.set(5);
         final snapshot = await ref.get();
         expect(snapshot.value, 5);
@@ -126,7 +126,44 @@ void setupDatabaseReferenceTests() {
         expect(result.snapshot.value, 5);
       });
 
+      test('does not emit local transaction events when disabled', () async {
+        final ref = database.ref('tests/transaction-apply-locally-false');
+        await ref.set({'count': 0});
+
+        final initialEvent = Completer<void>();
+        final events = <Object?>[];
+        final subscription = ref.onValue.listen((event) {
+          if (!initialEvent.isCompleted) {
+            initialEvent.complete();
+            return;
+          }
+
+          events.add(event.snapshot.value);
+        });
+
+        try {
+          await initialEvent.future.timeout(const Duration(seconds: 5));
+
+          await ref.runTransaction(
+            (value) => Transaction.success({
+              'count': ((value as Map?)?['count'] as int? ?? 0) + 1,
+              'timestamp': ServerValue.timestamp,
+            }),
+            applyLocally: false,
+          );
+
+          await Future<void>.delayed(const Duration(seconds: 1));
+
+          expect(events, hasLength(1));
+        } finally {
+          await database.goOnline();
+          await subscription.cancel();
+        }
+      });
+
       test('executes transaction', () async {
+        final ref = database.ref('tests/transaction-exec');
+        await ref.set(0);
         final snapshot = await ref.get();
         final value = (snapshot.value ?? 0) as int;
         final result = await ref.runTransaction((value) {

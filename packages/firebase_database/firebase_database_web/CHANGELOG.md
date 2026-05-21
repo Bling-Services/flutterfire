@@ -1,3 +1,27 @@
+## 0.2.7+8
+
+ - Update a dependency to the latest release.
+
+## 0.2.7+7
+
+ - **REFACTOR**: move all packages to workspace ([#18182](https://github.com/firebase/flutterfire/issues/18182)). ([6cdfcb10](https://github.com/firebase/flutterfire/commit/6cdfcb103da7be46ccb190d7e107d8c537aa1ff8))
+
+## 0.2.7+6
+
+ - Update a dependency to the latest release.
+
+## 0.2.7+5
+
+ - Update a dependency to the latest release.
+
+## 0.2.7+4
+
+ - Update a dependency to the latest release.
+
+## 0.2.7+3
+
+ - Update a dependency to the latest release.
+
 ## 0.2.7+2
 
  - **FIX**(firebase_database,web): return correct DatabaseReference instance in ThenableReference ([#17915](https://github.com/firebase/flutterfire/issues/17915)). ([c0e682ee](https://github.com/firebase/flutterfire/commit/c0e682eeaf506a746219b3cc3dd7dd7e93f94dca))

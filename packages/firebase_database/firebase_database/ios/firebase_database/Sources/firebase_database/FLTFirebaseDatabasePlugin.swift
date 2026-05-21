@@ -19,7 +19,7 @@ import Foundation
 #endif
 import FirebaseDatabase
 
-// Channel name constant to match macOS implementation
+/// Channel name constant to match macOS implementation
 let FLTFirebaseDatabaseChannelName = "plugins.flutter.io/firebase_database"
 
 @objc(FLTFirebaseDatabasePlugin)
@@ -251,23 +251,25 @@ public class FLTFirebaseDatabasePlugin: NSObject, FlutterPlugin, FLTFirebasePlug
     let database = getDatabaseFromPigeonApp(app)
     let reference = database.reference(withPath: request.path)
 
-    reference.runTransactionBlock { currentData in
+    reference.runTransactionBlock({ currentData in
       let semaphore = DispatchSemaphore(value: 0)
       var transactionResult: TransactionHandlerResult?
 
-      let flutterApi = FirebaseDatabaseFlutterApi(binaryMessenger: self.binaryMessenger)
-      flutterApi.callTransactionHandler(
-        transactionKey: request.transactionKey,
-        snapshotValue: currentData.value
-      ) { result in
-        switch result {
-        case let .success(handlerResult):
-          transactionResult = handlerResult
-        case let .failure(error):
-          print("Transaction handler error: \(error)")
-          transactionResult = TransactionHandlerResult(value: nil, aborted: true, exception: true)
+      DispatchQueue.main.async {
+        let flutterApi = FirebaseDatabaseFlutterApi(binaryMessenger: self.binaryMessenger)
+        flutterApi.callTransactionHandler(
+          transactionKey: request.transactionKey,
+          snapshotValue: currentData.value
+        ) { result in
+          switch result {
+          case let .success(handlerResult):
+            transactionResult = handlerResult
+          case let .failure(error):
+            print("Transaction handler error: \(error)")
+            transactionResult = TransactionHandlerResult(value: nil, aborted: true, exception: true)
+          }
+          semaphore.signal()
         }
-        semaphore.signal()
       }
 
       semaphore.wait()
@@ -282,7 +284,7 @@ public class FLTFirebaseDatabasePlugin: NSObject, FlutterPlugin, FLTFirebasePlug
 
       currentData.value = result.value
       return TransactionResult.success(withValue: currentData)
-    } andCompletionBlock: { error, committed, snapshot in
+    }, andCompletionBlock: { error, committed, snapshot in
       if let error {
         completion(.failure(self.createFlutterError(error)))
         return
@@ -302,7 +304,7 @@ public class FLTFirebaseDatabasePlugin: NSObject, FlutterPlugin, FLTFirebasePlug
       ]
 
       completion(.success(()))
-    }
+    }, withLocalEvents: request.applyLocally)
   }
 
   func databaseReferenceGetTransactionResult(app: DatabasePigeonFirebaseApp, transactionKey: Int64,
@@ -387,7 +389,6 @@ public class FLTFirebaseDatabasePlugin: NSObject, FlutterPlugin, FLTFirebasePlug
     let reference = database.reference(withPath: request.path)
 
     var query: DatabaseQuery = reference
-    var hasOrderModifier = false
     for modifier in request.modifiers {
       guard let type = modifier["type"] as? String else { continue }
 
@@ -398,17 +399,13 @@ public class FLTFirebaseDatabasePlugin: NSObject, FlutterPlugin, FLTFirebasePlug
           case "orderByChild":
             if let path = modifier["path"] as? String {
               query = query.queryOrdered(byChild: path)
-              hasOrderModifier = true
             }
           case "orderByKey":
             query = query.queryOrderedByKey()
-            hasOrderModifier = true
           case "orderByValue":
             query = query.queryOrderedByValue()
-            hasOrderModifier = true
           case "orderByPriority":
             query = query.queryOrderedByPriority()
-            hasOrderModifier = true
           default:
             break
           }
@@ -420,17 +417,13 @@ public class FLTFirebaseDatabasePlugin: NSObject, FlutterPlugin, FLTFirebasePlug
           let key = modifier["key"] as? String
           switch name {
           case "startAt":
-            if !hasOrderModifier {
-              query = query.queryLimited(toFirst: 0)
-            } else if let key {
+            if let key {
               query = query.queryStarting(atValue: value, childKey: key)
             } else {
               query = query.queryStarting(atValue: value)
             }
           case "startAfter":
-            if !hasOrderModifier {
-              query = query.queryLimited(toFirst: 0)
-            } else if let key {
+            if let key {
               query = query.queryStarting(afterValue: value, childKey: key)
             } else {
               query = query.queryStarting(afterValue: value)

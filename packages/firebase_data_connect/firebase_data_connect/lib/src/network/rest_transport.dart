@@ -69,7 +69,7 @@ class RestTransport implements DataConnectTransport {
   String appId;
 
   /// Invokes the current operation, whether its a query or mutation.
-  Future<Data> invokeOperation<Data, Variables>(
+  Future<ServerResponse> invokeOperation<Data, Variables>(
     String queryName,
     String endpoint,
     Deserializer<Data> deserializer,
@@ -116,10 +116,12 @@ class RestTransport implements DataConnectTransport {
         headers: headers,
       );
       Map<String, dynamic> bodyJson =
-          jsonDecode(r.body) as Map<String, dynamic>;
+          jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+
       if (r.statusCode != 200) {
-        String message =
-            bodyJson.containsKey('message') ? bodyJson['message']! : r.body;
+        String message = bodyJson.containsKey('message')
+            ? bodyJson['message']!
+            : utf8.decode(r.bodyBytes);
         throw DataConnectError(
           r.statusCode == 401
               ? DataConnectErrorCode.unauthorized
@@ -127,58 +129,13 @@ class RestTransport implements DataConnectTransport {
           "Received a status code of ${r.statusCode} with a message '$message'",
         );
       }
-
-      List errors = bodyJson['errors'] ?? [];
-      final data = bodyJson['data'];
-      List<DataConnectOperationFailureResponseErrorInfo> suberrors = errors
-          .map((e) => switch (e) {
-                {'path': List? path, 'message': String? message} =>
-                  DataConnectOperationFailureResponseErrorInfo(
-                      (path ?? [])
-                          .map((val) => switch (val) {
-                                String() => DataConnectFieldPathSegment(val),
-                                int() => DataConnectListIndexPathSegment(val),
-                                _ => throw DataConnectError(
-                                    DataConnectErrorCode.other,
-                                    'Incorrect type for $val')
-                              })
-                          .toList(),
-                      message ??
-                          (throw DataConnectError(
-                              DataConnectErrorCode.other, 'Missing message'))),
-                _ => throw DataConnectError(
-                    DataConnectErrorCode.other, 'Unable to parse JSON: $e')
-              })
-          .toList();
-      Data? decodedData;
-      Object? decodeError;
-      try {
-        /// The response we get is in the data field of the response
-        /// Once we get the data back, it's not quite json-encoded,
-        /// so we have to encode it and then send it to the user's deserializer.
-        decodedData = deserializer(jsonEncode(bodyJson['data']));
-      } catch (e) {
-        decodeError = e;
+      final Map<String, dynamic>? extensions =
+          bodyJson['extensions'] as Map<String, dynamic>?;
+      final serverResponse = ServerResponse(bodyJson, extensions: extensions);
+      if (extensions != null && extensions.containsKey('ttl')) {
+        serverResponse.ttl = Duration(seconds: extensions['ttl'] as int);
       }
-      if (suberrors.isNotEmpty) {
-        final response =
-            DataConnectOperationFailureResponse(suberrors, data, decodedData);
-
-        throw DataConnectOperationError(DataConnectErrorCode.other,
-            'Failed to invoke operation: ', response);
-      } else {
-        if (decodeError != null) {
-          throw DataConnectError(DataConnectErrorCode.other,
-              'Unable to decode data: $decodeError');
-        }
-        if (decodedData is! Data) {
-          throw DataConnectError(
-            DataConnectErrorCode.other,
-            "Decoded data wasn't parsed properly. Expected $Data, got $decodedData",
-          );
-        }
-        return decodedData;
-      }
+      return serverResponse;
     } on Exception catch (e) {
       if (e is DataConnectError) {
         rethrow;
@@ -192,7 +149,8 @@ class RestTransport implements DataConnectTransport {
 
   /// Invokes query REST endpoint.
   @override
-  Future<Data> invokeQuery<Data, Variables>(
+  Future<ServerResponse> invokeQuery<Data, Variables>(
+    String operationId,
     String queryName,
     Deserializer<Data> deserializer,
     Serializer<Variables>? serializer,
@@ -211,7 +169,8 @@ class RestTransport implements DataConnectTransport {
 
   /// Invokes mutation REST endpoint.
   @override
-  Future<Data> invokeMutation<Data, Variables>(
+  Future<ServerResponse> invokeMutation<Data, Variables>(
+    String operationId,
     String queryName,
     Deserializer<Data> deserializer,
     Serializer<Variables>? serializer,
@@ -226,6 +185,20 @@ class RestTransport implements DataConnectTransport {
       vars,
       token,
     );
+  }
+
+  /// WebSockets are now handled by WebSocketTransport in FirebaseDataConnect.
+  @override
+  Stream<ServerResponse> invokeStreamQuery<Data, Variables>(
+    String operationId,
+    String queryName,
+    Deserializer<Data> deserializer,
+    Serializer<Variables>? serializer,
+    Variables? vars,
+    String? token,
+  ) {
+    throw UnsupportedError(
+        'Streaming should be routed through WebSocketTransport');
   }
 }
 

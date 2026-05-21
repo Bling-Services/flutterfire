@@ -14,6 +14,7 @@
 
 import 'content.dart';
 import 'error.dart';
+import 'image_config.dart';
 import 'schema.dart';
 import 'tool.dart' show Tool, ToolConfig;
 
@@ -191,6 +192,8 @@ final class UsageMetadata {
     this.promptTokensDetails,
     this.candidatesTokensDetails,
     this.toolUsePromptTokensDetails,
+    this.cacheTokensDetails,
+    this.cachedContentTokenCount,
   });
 
   /// Number of tokens in the prompt.
@@ -217,6 +220,14 @@ final class UsageMetadata {
   /// A list of tokens used by tools whose usage was triggered from a prompt,
   /// broken down by modality.
   final List<ModalityTokenCount>? toolUsePromptTokensDetails;
+
+  /// The number of tokens in the prompt that were served from the cache.
+  /// If implicit caching is not active or no content was cached, this will be 0.
+  final int? cachedContentTokenCount;
+
+  /// Detailed breakdown of the cached tokens by modality (e.g., text, image).
+  /// This list provides granular insight into which parts of the content were cached.
+  final List<ModalityTokenCount>? cacheTokensDetails;
 }
 
 /// Response candidate generated from a [GenerativeModel].
@@ -337,6 +348,23 @@ final class WebGroundingChunk {
   final String? domain;
 }
 
+/// A grounding chunk sourced from Google Maps.
+final class GoogleMapsGroundingChunk {
+  // ignore: public_member_api_docs
+  GoogleMapsGroundingChunk({this.uri, this.title, this.placeId});
+
+  /// The URI of the place.
+  final String? uri;
+
+  /// The title of the place.
+  final String? title;
+
+  /// This Place's resource name, in `places/{place_id}` format.
+  ///
+  /// This can be used to look up the place using the Google Maps API.
+  final String? placeId;
+}
+
 /// Represents a chunk of retrieved data that supports a claim in the model's
 /// response.
 ///
@@ -344,10 +372,13 @@ final class WebGroundingChunk {
 /// enabled.
 final class GroundingChunk {
   // ignore: public_member_api_docs
-  GroundingChunk({this.web});
+  GroundingChunk({this.web, this.maps});
 
   /// Contains details if the grounding chunk is from a web source.
   final WebGroundingChunk? web;
+
+  /// Contains details if the grounding chunk is from a Google Maps source.
+  final GoogleMapsGroundingChunk? maps;
 }
 
 /// Provides information about how a specific segment of the model's response
@@ -400,7 +431,7 @@ final class GroundingMetadata {
   GroundingMetadata(
       {this.searchEntryPoint,
       required this.groundingChunks,
-      required this.groundingSupport,
+      required this.groundingSupports,
       required this.webSearchQueries});
 
   /// Google Search entry point for web searches.
@@ -418,9 +449,15 @@ final class GroundingMetadata {
 
   /// A list of [GroundingSupport]s.
   ///
+  /// Keeping for backwards compatibility. See b/477107542.
+  @Deprecated('Use groundingSupports instead')
+  List<GroundingSupport> get groundingSupport => groundingSupports;
+
+  /// A list of [GroundingSupport]s.
+  ///
   /// Each object details how specific segments of the
   /// model's response are supported by the `groundingChunks`.
-  final List<GroundingSupport> groundingSupport;
+  final List<GroundingSupport> groundingSupports;
 
   /// A list of web search queries that the model performed to gather the
   /// grounding information.
@@ -557,7 +594,7 @@ enum BlockReason {
       'BLOCK_REASON_UNSPECIFIED' => BlockReason.unknown,
       'SAFETY' => BlockReason.safety,
       'OTHER' => BlockReason.other,
-      _ => throw FormatException('Unhandled BlockReason format', jsonObject),
+      _ => BlockReason.unknown,
     };
   }
 
@@ -590,7 +627,19 @@ enum HarmCategory {
   sexuallyExplicit('HARM_CATEGORY_SEXUALLY_EXPLICIT'),
 
   /// Promotes or enables access to harmful goods, services, and activities.
-  dangerousContent('HARM_CATEGORY_DANGEROUS_CONTENT');
+  dangerousContent('HARM_CATEGORY_DANGEROUS_CONTENT'),
+
+  /// Image content containing hate speech.
+  imageHate('HARM_CATEGORY_IMAGE_HATE'),
+
+  /// Image content that is dangerous.
+  imageDangerousContent('HARM_CATEGORY_IMAGE_DANGEROUS_CONTENT'),
+
+  /// Image content containing harassment.
+  imageHarassment('HARM_CATEGORY_IMAGE_HARASSMENT'),
+
+  /// Image content that is sexually explicit.
+  imageSexuallyExplicit('HARM_CATEGORY_IMAGE_SEXUALLY_EXPLICIT');
 
   const HarmCategory(this._jsonString);
 
@@ -602,7 +651,13 @@ enum HarmCategory {
       'HARM_CATEGORY_HATE_SPEECH' => HarmCategory.hateSpeech,
       'HARM_CATEGORY_SEXUALLY_EXPLICIT' => HarmCategory.sexuallyExplicit,
       'HARM_CATEGORY_DANGEROUS_CONTENT' => HarmCategory.dangerousContent,
-      _ => throw FormatException('Unhandled HarmCategory format', jsonObject),
+      'HARM_CATEGORY_IMAGE_HATE' => HarmCategory.imageHate,
+      'HARM_CATEGORY_IMAGE_DANGEROUS_CONTENT' =>
+        HarmCategory.imageDangerousContent,
+      'HARM_CATEGORY_IMAGE_HARASSMENT' => HarmCategory.imageHarassment,
+      'HARM_CATEGORY_IMAGE_SEXUALLY_EXPLICIT' =>
+        HarmCategory.imageSexuallyExplicit,
+      _ => HarmCategory.unknown,
     };
   }
 
@@ -645,8 +700,7 @@ enum HarmProbability {
       'LOW' => HarmProbability.low,
       'MEDIUM' => HarmProbability.medium,
       'HIGH' => HarmProbability.high,
-      _ =>
-        throw FormatException('Unhandled HarmProbability format', jsonObject),
+      _ => HarmProbability.unknown,
     };
   }
 
@@ -688,7 +742,7 @@ enum HarmSeverity {
       'HARM_SEVERITY_LOW' => HarmSeverity.low,
       'HARM_SEVERITY_MEDIUM' => HarmSeverity.medium,
       'HARM_SEVERITY_HIGH' => HarmSeverity.high,
-      _ => throw FormatException('Unhandled HarmSeverity format', jsonObject),
+      _ => HarmSeverity.unknown,
     };
   }
 
@@ -754,6 +808,45 @@ enum FinishReason {
   /// The candidate content was flagged for malformed function call reasons.
   malformedFunctionCall('MALFORMED_FUNCTION_CALL'),
 
+  /// Token generation was stopped because the response contained forbidden terms.
+  blocklist('BLOCKLIST'),
+
+  /// Token generation was stopped because the response contained potentially prohibited content.
+  prohibitedContent('PROHIBITED_CONTENT'),
+
+  /// Token generation was stopped because of Sensitive Personally Identifiable Information (SPII).
+  spii('SPII'),
+
+  /// Token generation stopped because generated images contain safety violations.
+  imageSafety('IMAGE_SAFETY'),
+
+  /// Image generation stopped because generated images have other prohibited content.
+  imageProhibitedContent('IMAGE_PROHIBITED_CONTENT'),
+
+  /// Image generation stopped because of other miscellaneous issues.
+  imageOther('IMAGE_OTHER'),
+
+  /// The model was expected to generate an image, but none was generated.
+  noImage('NO_IMAGE'),
+
+  /// Image generation stopped due to recitation.
+  imageRecitation('IMAGE_RECITATION'),
+
+  /// The response candidate content was flagged for using an unsupported language.
+  language('LANGUAGE'),
+
+  /// Model generated a tool call but no tools were enabled in the request.
+  unexpectedToolCall('UNEXPECTED_TOOL_CALL'),
+
+  /// Model called too many tools consecutively, thus the system exited execution.
+  tooManyToolCalls('TOO_MANY_TOOL_CALLS'),
+
+  /// Request has at least one thought signature missing.
+  missingThoughtSignature('MISSING_THOUGHT_SIGNATURE'),
+
+  /// Finished due to malformed response.
+  malformedResponse('MALFORMED_RESPONSE'),
+
   /// Unknown reason.
   other('OTHER');
 
@@ -774,7 +867,21 @@ enum FinishReason {
       'RECITATION' => FinishReason.recitation,
       'OTHER' => FinishReason.other,
       'MALFORMED_FUNCTION_CALL' => FinishReason.malformedFunctionCall,
-      _ => throw FormatException('Unhandled FinishReason format', jsonObject),
+      'BLOCKLIST' => FinishReason.blocklist,
+      'PROHIBITED_CONTENT' => FinishReason.prohibitedContent,
+      'SPII' => FinishReason.spii,
+      'IMAGE_SAFETY' => FinishReason.imageSafety,
+      'IMAGE_PROHIBITED_CONTENT' => FinishReason.imageProhibitedContent,
+      'IMAGE_OTHER' => FinishReason.imageOther,
+      'NO_IMAGE' => FinishReason.noImage,
+      'IMAGE_RECITATION' => FinishReason.imageRecitation,
+      'LANGUAGE' => FinishReason.language,
+      'UNEXPECTED_TOOL_CALL' => FinishReason.unexpectedToolCall,
+      'TOO_MANY_TOOL_CALLS' => FinishReason.tooManyToolCalls,
+      'MISSING_THOUGHT_SIGNATURE' => FinishReason.missingThoughtSignature,
+      'MALFORMED_RESPONSE' => FinishReason.malformedResponse,
+      'UNKNOWN' => FinishReason.unknown,
+      _ => FinishReason.unknown,
     };
   }
 
@@ -824,8 +931,7 @@ enum ContentModality {
       'VIDEO' => ContentModality.video,
       'AUDIO' => ContentModality.audio,
       'DOCUMENT' => ContentModality.document,
-      _ =>
-        throw FormatException('Unhandled ContentModality format', jsonObject),
+      _ => ContentModality.unspecified,
     };
   }
 
@@ -930,8 +1036,7 @@ enum HarmBlockMethod {
       'SEVERITY' => HarmBlockMethod.severity,
       'PROBABILITY' => HarmBlockMethod.probability,
       'HARM_BLOCK_METHOD_UNSPECIFIED' => HarmBlockMethod.unspecified,
-      _ =>
-        throw FormatException('Unhandled HarmBlockMethod format', jsonObject),
+      _ => HarmBlockMethod.unspecified,
     };
   }
 
@@ -1180,6 +1285,7 @@ final class GenerationConfig extends BaseGenerationConfig {
     this.responseSchema,
     this.responseJsonSchema,
     this.thinkingConfig,
+    this.imageConfig,
   }) : assert(responseSchema == null || responseJsonSchema == null,
             'responseSchema and responseJsonSchema cannot both be set.');
 
@@ -1228,6 +1334,9 @@ final class GenerationConfig extends BaseGenerationConfig {
   /// support thinking.
   final ThinkingConfig? thinkingConfig;
 
+  /// Configuration options for generating images with Gemini models.
+  final ImageConfig? imageConfig;
+
   @override
   Map<String, Object?> toJson() => {
         ...super.toJson(),
@@ -1242,6 +1351,8 @@ final class GenerationConfig extends BaseGenerationConfig {
           'responseJsonSchema': responseJsonSchema,
         if (thinkingConfig case final thinkingConfig?)
           'thinkingConfig': thinkingConfig.toJson(),
+        if (imageConfig case final imageConfig?)
+          'imageConfig': imageConfig.toJson(),
       };
 }
 
@@ -1276,7 +1387,7 @@ enum TaskType {
       'SEMANTIC_SIMILARITY' => TaskType.semanticSimilarity,
       'CLASSIFICATION' => TaskType.classification,
       'CLUSTERING' => TaskType.clustering,
-      _ => throw FormatException('Unhandled TaskType format', jsonObject),
+      _ => TaskType.unspecified,
     };
   }
 
@@ -1520,6 +1631,16 @@ UsageMetadata parseUsageMetadata(Object jsonObject) {
       toolUsePromptTokensDetails.map(_parseModalityTokenCount).toList(),
     _ => null,
   };
+  final cachedContentTokenCount = switch (jsonObject) {
+    {'cachedContentTokenCount': final int cachedContentTokenCount} =>
+      cachedContentTokenCount,
+    _ => null,
+  };
+  final cacheTokensDetails = switch (jsonObject) {
+    {'cacheTokensDetails': final List<Object?> cacheTokensDetails} =>
+      cacheTokensDetails.map(_parseModalityTokenCount).toList(),
+    _ => null,
+  };
   return UsageMetadata._(
     promptTokenCount: promptTokenCount,
     candidatesTokenCount: candidatesTokenCount,
@@ -1529,6 +1650,8 @@ UsageMetadata parseUsageMetadata(Object jsonObject) {
     promptTokensDetails: promptTokensDetails,
     candidatesTokensDetails: candidatesTokensDetails,
     toolUsePromptTokensDetails: toolUsePromptTokensDetails,
+    cachedContentTokenCount: cachedContentTokenCount,
+    cacheTokensDetails: cacheTokensDetails,
   );
 }
 
@@ -1614,9 +1737,9 @@ GroundingMetadata parseGroundingMetadata(Object? jsonObject) {
       [];
   // Filters out null elements, which are returned from _parseGroundingSupport when
   // segment is null.
-  final groundingSupport = switch (jsonObject) {
-        {'groundingSupport': final List<Object?> groundingSupport} =>
-          groundingSupport
+  final groundingSupports = switch (jsonObject) {
+        {'groundingSupports': final List<Object?> groundingSupports} =>
+          groundingSupports
               .map(_parseGroundingSupport)
               .whereType<GroundingSupport>()
               .toList(),
@@ -1633,7 +1756,7 @@ GroundingMetadata parseGroundingMetadata(Object? jsonObject) {
   return GroundingMetadata(
       searchEntryPoint: searchEntryPoint,
       groundingChunks: groundingChunks,
-      groundingSupport: groundingSupport,
+      groundingSupports: groundingSupports,
       webSearchQueries: webSearchQueries);
 }
 
@@ -1661,6 +1784,18 @@ WebGroundingChunk _parseWebGroundingChunk(Object? jsonObject) {
   );
 }
 
+GoogleMapsGroundingChunk _parseGoogleMapsGroundingChunk(Object? jsonObject) {
+  if (jsonObject is! Map) {
+    throw unhandledFormat('GoogleMapsGroundingChunk', jsonObject);
+  }
+
+  return GoogleMapsGroundingChunk(
+    uri: jsonObject['uri'] as String?,
+    title: jsonObject['title'] as String?,
+    placeId: jsonObject['placeId'] as String?,
+  );
+}
+
 GroundingChunk _parseGroundingChunk(Object? jsonObject) {
   if (jsonObject is! Map) {
     throw unhandledFormat('GroundingChunk', jsonObject);
@@ -1669,6 +1804,9 @@ GroundingChunk _parseGroundingChunk(Object? jsonObject) {
   return GroundingChunk(
     web: jsonObject['web'] != null
         ? _parseWebGroundingChunk(jsonObject['web'])
+        : null,
+    maps: jsonObject['maps'] != null
+        ? _parseGoogleMapsGroundingChunk(jsonObject['maps'])
         : null,
   );
 }
@@ -1689,7 +1827,7 @@ GroundingSupport? _parseGroundingSupport(Object? jsonObject) {
   return GroundingSupport(
       segment: segment,
       groundingChunkIndices:
-          (jsonObject['groundingChunkIndices'] as List<int>?) ?? []);
+          (jsonObject['groundingChunkIndices'] as List?)?.cast<int>() ?? []);
 }
 
 SearchEntryPoint _parseSearchEntryPoint(Object? jsonObject) {
@@ -1790,7 +1928,7 @@ enum Outcome {
       'OUTCOME_OK' => Outcome.ok,
       'OUTCOME_FAILED' => Outcome.failed,
       'OUTCOME_DEADLINE_EXCEEDED' => Outcome.deadlineExceeded,
-      _ => throw FormatException('Unhandled Outcome format', jsonObject),
+      _ => Outcome.unspecified,
     };
   }
 }

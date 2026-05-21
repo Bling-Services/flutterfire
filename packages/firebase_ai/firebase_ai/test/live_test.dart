@@ -67,6 +67,14 @@ void main() {
       expect(liveGenerationConfigWithoutOptionals.toJson(), {});
     });
 
+    test('SessionResumptionConfig toJson() returns correct JSON', () {
+      final resumableConfig = SessionResumptionConfig();
+      expect(resumableConfig.toJson(), {});
+
+      final resumeConfig = SessionResumptionConfig.resume('some_handle');
+      expect(resumeConfig.toJson(), {'handle': 'some_handle'});
+    });
+
     test('LiveServerContent constructor and properties', () {
       final content = Content.text('Hello, world!');
       final message = LiveServerContent(
@@ -226,6 +234,16 @@ void main() {
       final jsonObject = {'setupComplete': {}};
       final response = parseServerResponse(jsonObject);
       expect(response.message, isA<LiveServerSetupComplete>());
+    });
+
+    test('parseServerMessage parses goAway message correctly', () {
+      final jsonObject = {
+        'goAway': {'timeLeft': '50s'}
+      };
+      final response = parseServerResponse(jsonObject);
+      expect(response.message, isA<GoingAwayNotice>());
+      final goAwayMessage = response.message as GoingAwayNotice;
+      expect(goAwayMessage.timeLeft, '50s');
     });
 
     test('parseServerMessage throws VertexAIException for error message', () {

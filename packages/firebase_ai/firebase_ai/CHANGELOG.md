@@ -1,3 +1,46 @@
+## 3.12.1
+
+ - Update a dependency to the latest release.
+
+## 3.12.0
+
+ - **REFACTOR**: move all packages to workspace ([#18182](https://github.com/firebase/flutterfire/issues/18182)). ([6cdfcb10](https://github.com/firebase/flutterfire/commit/6cdfcb103da7be46ccb190d7e107d8c537aa1ff8))
+ - **FEAT**(firebaseai): ImageConfig and FinishReasons ([#18180](https://github.com/firebase/flutterfire/issues/18180)). ([7d1a8b1d](https://github.com/firebase/flutterfire/commit/7d1a8b1db4c5f585ba38d46df37330d3d17de774))
+ - **FEAT**(firebaseai): live session resumption ([#18038](https://github.com/firebase/flutterfire/issues/18038)). ([829fd949](https://github.com/firebase/flutterfire/commit/829fd949bf1644ad9ce73dfb8ed416d89654f989))
+ - **FEAT**(core): Add Auth and AppCheck as App's registered service. ([#18237](https://github.com/firebase/flutterfire/issues/18237)). ([7ce191cb](https://github.com/firebase/flutterfire/commit/7ce191cbd598b299cd0ec64b45d1366914367a5d))
+ - **FEAT**(ai): add missing enum types ([#18198](https://github.com/firebase/flutterfire/issues/18198)). ([889af7c7](https://github.com/firebase/flutterfire/commit/889af7c7b8f7705a55cdd90e39d306858a2e9fd4))
+ - **FEAT**(firebaseai): add Google Maps Grounding support ([#18144](https://github.com/firebase/flutterfire/issues/18144)). ([385d9337](https://github.com/firebase/flutterfire/commit/385d93372f749843ee3d8ac409a878fa149ba7ed))
+ - **FEAT**(ai): add unexpectedToolCall finish reason and corresponding tests ([#18188](https://github.com/firebase/flutterfire/issues/18188)). ([27852720](https://github.com/firebase/flutterfire/commit/278527207a4fb35a5854dd3f0a9405da9f80877c))
+
+## 3.11.0
+
+ - **FEAT**(firebaseai): server prompt chat and function calling ([#17972](https://github.com/firebase/flutterfire/issues/17972)). ([4b8f2288](https://github.com/firebase/flutterfire/commit/4b8f22889808c0a55f4fc2abc52c72aa2d932379))
+ - **FEAT**(firebaseai): add spm support for firebase_ai, and update example to running with spm ([#18159](https://github.com/firebase/flutterfire/issues/18159)). ([bb1e04f8](https://github.com/firebase/flutterfire/commit/bb1e04f8cd0f29cad3913af7bcf40744ffb2515a))
+ - **FEAT**(firebaseai): deprecate imagen ([#18148](https://github.com/firebase/flutterfire/issues/18148)). ([99450317](https://github.com/firebase/flutterfire/commit/99450317d83f7b77ab192aed7071432785337789))
+ - **FEAT**(firebaseai): Add ability for Schema class to export to json schema ([#18131](https://github.com/firebase/flutterfire/issues/18131)). ([5818a33c](https://github.com/firebase/flutterfire/commit/5818a33c060f775b4a00e11ad5ee04b71e939dad))
+
+## 3.10.0
+
+ - **FEAT**(firebaseai): add proper headers for X-Android-Package, X-Android-Cert and x-ios-bundle-identifier ([#18076](https://github.com/firebase/flutterfire/issues/18076)). ([1351e94e](https://github.com/firebase/flutterfire/commit/1351e94ed3213c458a955cebf05802f12838d5f7))
+ - **FEAT**(ios): migrate iOS to UIScene lifecycle ([#18054](https://github.com/firebase/flutterfire/issues/18054)). ([3ffa4110](https://github.com/firebase/flutterfire/commit/3ffa411098132fd5182a84be4e7a226106bc7451))
+
+## 3.9.0
+
+ - **FIX**: resolve lint issues ([#18017](https://github.com/firebase/flutterfire/issues/18017)). ([e8e85397](https://github.com/firebase/flutterfire/commit/e8e85397ccdcab6c8b84348884b4673f86b79d1c))
+ - **FEAT**(firebaseai): update Live API sample to add video support. ([#18018](https://github.com/firebase/flutterfire/issues/18018)). ([f91df750](https://github.com/firebase/flutterfire/commit/f91df7503bc4506c66cbebcfa562d65de1ae0e5b))
+
+## 3.8.0
+
+ - **FIX**(firebase_ai): Rename `groundingSupport` to `groundingSupports` ([#17961](https://github.com/firebase/flutterfire/issues/17961)). ([cfb90989](https://github.com/firebase/flutterfire/commit/cfb909896d8ae9edc49b10f1def5b64dcc3dfb35))
+ - **FEAT**(firebaseai): implicit caching, add metadata ([#17979](https://github.com/firebase/flutterfire/issues/17979)). ([e5fc7587](https://github.com/firebase/flutterfire/commit/e5fc7587e372ba2daa7500d4e9ce30e0537ff889))
+
+## 3.7.0
+
+ - **FIX**(firebase_ai): add missing error exports for ServiceApiNotEnabled and QuotaExceeded ([#17928](https://github.com/firebase/flutterfire/issues/17928)). ([fc6dd40f](https://github.com/firebase/flutterfire/commit/fc6dd40f59a1ead2865cfb93ad6e76b07da4097f))
+ - **FEAT**(firebase_ai): add LiveServerGoAway message for session termination ([#17843](https://github.com/firebase/flutterfire/issues/17843)). ([e9ffbad8](https://github.com/firebase/flutterfire/commit/e9ffbad814f57b81c61c289902270fabaa6eb290))
+ - **FEAT**(firebaseai): auto function calling ([#17950](https://github.com/firebase/flutterfire/issues/17950)). ([c83c3eab](https://github.com/firebase/flutterfire/commit/c83c3eab17c65720bd100f198ec1a4fed1c797c9))
+ - **FEAT**(firebase_ai): add thinking level to ThinkingConfig ([#17937](https://github.com/firebase/flutterfire/issues/17937)). ([e4a06521](https://github.com/firebase/flutterfire/commit/e4a065217e4acd0a356afc51e698b12c1fe2609b))
+
 ## 3.6.1
 
  - Update a dependency to the latest release.

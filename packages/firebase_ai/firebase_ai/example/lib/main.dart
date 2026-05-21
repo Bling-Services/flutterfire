@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import 'package:firebase_ai/firebase_ai.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -20,18 +21,17 @@ import 'package:flutter/material.dart';
 // Import after file is generated through flutterfire_cli.
 // import 'package:firebase_ai_example/firebase_options.dart';
 
-import 'pages/audio_page.dart';
 import 'pages/bidi_page.dart';
 import 'pages/chat_page.dart';
-import 'pages/document.dart';
 import 'pages/function_calling_page.dart';
+import 'pages/image_generation_page.dart';
 import 'pages/image_prompt_page.dart';
-import 'pages/imagen_page.dart';
 import 'pages/json_schema_page.dart';
+import 'pages/multimodal_page.dart';
 import 'pages/schema_page.dart';
-import 'pages/token_count_page.dart';
-import 'pages/video_page.dart';
 import 'pages/server_template_page.dart';
+import 'pages/grounding_page.dart';
+import 'pages/token_count_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,8 +53,14 @@ class GenerativeAISample extends StatefulWidget {
 class _GenerativeAISampleState extends State<GenerativeAISample> {
   bool _useVertexBackend = false;
   late GenerativeModel _currentModel;
-  late ImagenModel _currentImagenModel;
-  int _currentBottomNavIndex = 0;
+
+  static final ThemeData _darkTheme = ThemeData(
+    colorScheme: ColorScheme.fromSeed(
+      brightness: Brightness.dark,
+      seedColor: const Color.fromARGB(255, 171, 222, 244),
+    ),
+    useMaterial3: true,
+  );
 
   @override
   void initState() {
@@ -65,30 +71,13 @@ class _GenerativeAISampleState extends State<GenerativeAISample> {
 
   void _initializeModel(bool useVertexBackend) {
     if (useVertexBackend) {
-      final vertexInstance = FirebaseAI.vertexAI(auth: FirebaseAuth.instance);
-      _currentModel = vertexInstance.generativeModel(model: 'gemini-2.5-flash');
-      _currentImagenModel = _initializeImagenModel(vertexInstance);
+      final vertexInstance = FirebaseAI.vertexAI(location: 'global');
+      _currentModel =
+          vertexInstance.generativeModel(model: 'gemini-3.1-flash-lite');
     } else {
-      final googleAI = FirebaseAI.googleAI(auth: FirebaseAuth.instance);
-      _currentModel = googleAI.generativeModel(model: 'gemini-2.5-flash');
-      _currentImagenModel = _initializeImagenModel(googleAI);
+      final googleAI = FirebaseAI.googleAI();
+      _currentModel = googleAI.generativeModel(model: 'gemini-3.1-flash-lite');
     }
-  }
-
-  ImagenModel _initializeImagenModel(FirebaseAI instance) {
-    var generationConfig = ImagenGenerationConfig(
-      numberOfImages: 1,
-      aspectRatio: ImagenAspectRatio.square1x1,
-      imageFormat: ImagenFormat.jpeg(compressionQuality: 75),
-    );
-    return instance.imagenModel(
-      model: 'imagen-3.0-capability-001',
-      generationConfig: generationConfig,
-      safetySettings: ImagenSafetySettings(
-        ImagenSafetyFilterLevel.blockLowAndAbove,
-        ImagenPersonFilterLevel.allowAdult,
-      ),
-    );
   }
 
   void _toggleBackend(bool value) {
@@ -98,35 +87,20 @@ class _GenerativeAISampleState extends State<GenerativeAISample> {
     _initializeModel(_useVertexBackend);
   }
 
-  void _onBottomNavTapped(int index) {
-    setState(() {
-      _currentBottomNavIndex = index;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter + ${_useVertexBackend ? 'Vertex AI' : 'Google AI'}',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.dark,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          brightness: Brightness.dark,
-          seedColor: const Color.fromARGB(255, 171, 222, 244),
-        ),
-        useMaterial3: true,
-      ),
+      theme: _darkTheme,
       home: HomeScreen(
         key: ValueKey(
           '${_useVertexBackend}_${_currentModel.hashCode}',
         ),
         model: _currentModel,
-        imagenModel: _currentImagenModel,
         useVertexBackend: _useVertexBackend,
         onBackendChanged: _toggleBackend,
-        selectedIndex: _currentBottomNavIndex,
-        onSelectedIndexChanged: _onBottomNavTapped,
       ),
     );
   }
@@ -134,20 +108,14 @@ class _GenerativeAISampleState extends State<GenerativeAISample> {
 
 class HomeScreen extends StatefulWidget {
   final GenerativeModel model;
-  final ImagenModel imagenModel;
   final bool useVertexBackend;
   final ValueChanged<bool> onBackendChanged;
-  final int selectedIndex;
-  final ValueChanged<int> onSelectedIndexChanged;
 
   const HomeScreen({
     super.key,
     required this.model,
-    required this.imagenModel,
     required this.useVertexBackend,
     required this.onBackendChanged,
-    required this.selectedIndex,
-    required this.onSelectedIndexChanged,
   });
 
   @override
@@ -155,15 +123,18 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0;
+
   void _onItemTapped(int index) {
-    widget.onSelectedIndexChanged(index);
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
 // Method to build the selected page on demand
   Widget _buildSelectedPage(
     int index,
     GenerativeModel currentModel,
-    ImagenModel currentImagenModel,
     bool useVertexBackend,
   ) {
     switch (index) {
@@ -173,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
           useVertexBackend: useVertexBackend,
         );
       case 1:
-        return AudioPage(title: 'Audio', model: currentModel);
+        return MultimodalPage(title: 'Multimodal', model: currentModel);
       case 2:
         return TokenCountPage(title: 'Token Count', model: currentModel);
       case 3:
@@ -185,24 +156,28 @@ class _HomeScreenState extends State<HomeScreen> {
       case 4:
         return ImagePromptPage(title: 'Image Prompt', model: currentModel);
       case 5:
-        return ImagenPage(title: 'Imagen Model', model: currentImagenModel);
+        return ImageGenerationPage(
+          title: 'Image Gen',
+          useVertexBackend: useVertexBackend,
+        );
       case 6:
         return SchemaPromptPage(title: 'Schema Prompt', model: currentModel);
       case 7:
         return JsonSchemaPage(title: 'JSON Schema', model: currentModel);
       case 8:
-        return DocumentPage(title: 'Document Prompt', model: currentModel);
-      case 9:
-        return VideoPage(title: 'Video Prompt', model: currentModel);
-      case 10:
         return BidiPage(
           title: 'Live Stream',
           model: currentModel,
           useVertexBackend: useVertexBackend,
         );
-      case 11:
+      case 9:
         return ServerTemplatePage(
           title: 'Server Template',
+          useVertexBackend: useVertexBackend,
+        );
+      case 10:
+        return GroundingPage(
+          title: 'Grounding',
           useVertexBackend: useVertexBackend,
         );
 
@@ -264,9 +239,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Center(
         child: _buildSelectedPage(
-          widget.selectedIndex,
+          _selectedIndex,
           widget.model,
-          widget.imagenModel,
           widget.useVertexBackend,
         ),
       ),
@@ -285,9 +259,9 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Chat',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.mic),
-            label: 'Audio',
-            tooltip: 'Audio Prompt',
+            icon: Icon(Icons.perm_media),
+            label: 'Multimodal',
+            tooltip: 'Multimodal Prompt',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.numbers),
@@ -305,9 +279,9 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Image Prompt',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.image_search),
-            label: 'Imagen',
-            tooltip: 'Imagen Model',
+            icon: Icon(Icons.brush),
+            label: 'NanoBanana',
+            tooltip: 'Image Generation',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.schema),
@@ -318,16 +292,6 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.data_object),
             label: 'JSON',
             tooltip: 'JSON Schema',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.edit_document),
-            label: 'Document',
-            tooltip: 'Document Prompt',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.video_collection),
-            label: 'Video',
-            tooltip: 'Video Prompt',
           ),
           BottomNavigationBarItem(
             icon: Icon(
@@ -343,8 +307,15 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Server',
             tooltip: 'Server Template',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(
+              Icons.location_on,
+            ),
+            label: 'Grounding',
+            tooltip: 'Search & Maps Grounding',
+          ),
         ],
-        currentIndex: widget.selectedIndex,
+        currentIndex: _selectedIndex,
         onTap: _onItemTapped,
       ),
     );

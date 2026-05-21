@@ -1,4 +1,4 @@
-// Copyright 2024 Google LLC
+// Copyright 2026 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ import 'package:mockito/src/dummies.dart' as _i8;
 // ignore_for_file: unnecessary_parenthesis
 // ignore_for_file: camel_case_types
 // ignore_for_file: subtype_of_sealed_class
+// ignore_for_file: invalid_use_of_internal_member
 
 class _FakeResponse_0 extends _i1.SmartFake implements _i2.Response {
   _FakeResponse_0(
@@ -753,10 +754,10 @@ class MockFirebaseAppCheck extends _i1.Mock implements _i10.FirebaseAppCheck {
       ) as _i6.Stream<String?>);
 
   @override
-  set app(_i5.FirebaseApp? _app) => super.noSuchMethod(
+  set app(_i5.FirebaseApp? value) => super.noSuchMethod(
         Invocation.setter(
           #app,
-          _app,
+          value,
         ),
         returnValueForMissingStub: null,
       );
@@ -777,6 +778,8 @@ class MockFirebaseAppCheck extends _i1.Mock implements _i10.FirebaseAppCheck {
         const _i11.AndroidPlayIntegrityProvider(),
     _i11.AppleAppCheckProvider? providerApple =
         const _i11.AppleDeviceCheckProvider(),
+    _i11.WindowsAppCheckProvider? providerWindows =
+        const _i11.WindowsDebugProvider(),
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -784,10 +787,12 @@ class MockFirebaseAppCheck extends _i1.Mock implements _i10.FirebaseAppCheck {
           [],
           {
             #webProvider: webProvider,
+            #providerWeb: providerWeb,
             #androidProvider: androidProvider,
             #appleProvider: appleProvider,
             #providerAndroid: providerAndroid,
             #providerApple: providerApple,
+            #providerWindows: providerWindows,
           },
         ),
         returnValue: _i6.Future<void>.value(),

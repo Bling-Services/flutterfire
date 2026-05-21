@@ -1,3 +1,30 @@
+## 3.7.0
+
+ - **FEAT**: bump Firebase JS SDK to 12.13.0 ([#18274](https://github.com/firebase/flutterfire/issues/18274)). ([bb8ad546](https://github.com/firebase/flutterfire/commit/bb8ad546f114146b6e1cd26c3296825e2964745d))
+
+## 3.6.1
+
+ - **REFACTOR**: move all packages to workspace ([#18182](https://github.com/firebase/flutterfire/issues/18182)). ([6cdfcb10](https://github.com/firebase/flutterfire/commit/6cdfcb103da7be46ccb190d7e107d8c537aa1ff8))
+
+## 3.6.0
+
+ - **FEAT**: support for Firestore Pipelines ([#18183](https://github.com/firebase/flutterfire/issues/18183)). ([d734cf08](https://github.com/firebase/flutterfire/commit/d734cf0885f6d9403c2fb3ac48d6c52e14199309))
+ - **FEAT**: bump JS SDK to version 12.12.0 ([#18186](https://github.com/firebase/flutterfire/issues/18186)). ([3d943ed4](https://github.com/firebase/flutterfire/commit/3d943ed4154eb61617746825fc5c1c90f1e73d88))
+ - **FEAT**: bump JS SDK to version 12.11.0 ([#18160](https://github.com/firebase/flutterfire/issues/18160)). ([b3ab0003](https://github.com/firebase/flutterfire/commit/b3ab00036c70debca59414ea236c5012fb841a63))
+
+## 3.5.1
+
+ - Update a dependency to the latest release.
+
+## 3.5.0
+
+ - **FEAT**: bump Firebase JS SDK to 12.9.0 ([#18043](https://github.com/firebase/flutterfire/issues/18043)). ([1b29c4d4](https://github.com/firebase/flutterfire/commit/1b29c4d432597d12e08990825647f0ac9467a8f3))
+
+## 3.4.0
+
+ - **FIX**(firebase_core,web): return empty list from apps getter in WASM mode ([#17919](https://github.com/firebase/flutterfire/issues/17919)). ([0eea9f81](https://github.com/firebase/flutterfire/commit/0eea9f814e7f8bace50e8c1e5973c231cf9a4e3a))
+ - **FEAT**: bump Firebase JS SDK to 12.7.0 ([#17940](https://github.com/firebase/flutterfire/issues/17940)). ([198aef8d](https://github.com/firebase/flutterfire/commit/198aef8db6c96a08f57d750f1fa756da5e4a68a5))
+
 ## 3.3.1
 
  - **REFACTOR**(firebase_core,web): remove variant fallback in registerVersion ([#17874](https://github.com/firebase/flutterfire/issues/17874)). ([44d99a94](https://github.com/firebase/flutterfire/commit/44d99a94f00eb34a175a36ee35c074afcadf9890))

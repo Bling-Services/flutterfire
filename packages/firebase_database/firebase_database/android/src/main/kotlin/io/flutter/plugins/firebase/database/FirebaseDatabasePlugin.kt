@@ -4,7 +4,6 @@
 
 package io.flutter.plugins.firebase.database
 
-import android.util.Log
 import androidx.annotation.NonNull
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.TaskCompletionSource
@@ -141,9 +140,15 @@ class FirebaseDatabasePlugin :
   @Suppress("UNCHECKED_CAST")
   private fun getQuery(arguments: Map<String, Any>): Query {
     val ref = getReference(arguments)
-    val modifiers = arguments[Constants.MODIFIERS] as List<Map<String, Any>>
-    return QueryBuilder(ref, modifiers).build()
+    val modifiers = arguments[Constants.MODIFIERS] as List<Map<String, Any?>>
+    return queryFromModifiers(ref, modifiers)
   }
+
+  /** Applies [modifiers]. */
+  private fun queryFromModifiers(
+    reference: DatabaseReference,
+    modifiers: List<Map<String, Any?>>,
+  ): Query = QueryBuilder(reference, modifiers).build()
 
   private fun goOnline(arguments: Map<String, Any>): Task<Void> {
     val taskCompletionSource = TaskCompletionSource<Void>()
@@ -479,7 +484,7 @@ class FirebaseDatabasePlugin :
   }
 
   private fun removeEventStreamHandlers() {
-    for ((eventChannel, streamHandler) in streamHandlers) {
+    for ((eventChannel, streamHandler) in streamHandlers.toMap()) {
       streamHandler?.onCancel(null)
       eventChannel.setStreamHandler(null)
     }
@@ -510,7 +515,9 @@ class FirebaseDatabasePlugin :
   override fun setPersistenceEnabled(app: DatabasePigeonFirebaseApp, enabled: Boolean, callback: (KotlinResult<Unit>) -> Unit) {
     try {
       val database = getDatabaseFromPigeonApp(app)
-      database.setPersistenceEnabled(enabled)
+      if (app.settings.persistenceEnabled == null) {
+        database.setPersistenceEnabled(enabled)
+      }
       callback(KotlinResult.success(Unit))
     } catch (e: Exception) {
       callback(KotlinResult.failure(e))
@@ -520,7 +527,9 @@ class FirebaseDatabasePlugin :
   override fun setPersistenceCacheSizeBytes(app: DatabasePigeonFirebaseApp, cacheSize: Long, callback: (KotlinResult<Unit>) -> Unit) {
     try {
       val database = getDatabaseFromPigeonApp(app)
-      database.setPersistenceCacheSizeBytes(cacheSize)
+      if (app.settings.cacheSizeBytes == null) {
+        database.setPersistenceCacheSizeBytes(cacheSize)
+      }
       callback(KotlinResult.success(Unit))
     } catch (e: Exception) {
       callback(KotlinResult.failure(e))
@@ -764,7 +773,7 @@ class FirebaseDatabasePlugin :
             callback(KotlinResult.success(Unit))
           }
         }
-      })
+      }, request.applyLocally)
     } catch (e: Exception) {
       // Convert generic exceptions to FlutterFirebaseDatabaseException for proper error handling
       val flutterException = if (e is FlutterFirebaseDatabaseException) e else FlutterFirebaseDatabaseException.unknown(e.message ?: "Unknown transaction error")
@@ -841,124 +850,21 @@ class FirebaseDatabasePlugin :
 
   override fun queryObserve(app: DatabasePigeonFirebaseApp, request: QueryRequest, callback: (KotlinResult<String>) -> Unit) {
     try {
-      Log.d("FirebaseDatabase", "🔍 Kotlin: Setting up query observe for path=${request.path}")
       val database = getDatabaseFromPigeonApp(app)
       val reference = database.getReference(request.path)
-
-      // Apply query modifiers if any
-      var query: com.google.firebase.database.Query = reference
-      var hasOrderModifier = false
-
-      for (modifier in request.modifiers) {
-        when (modifier["type"] as String) {
-          "orderBy" -> {
-            when (modifier["name"] as String) {
-              "orderByChild" -> {
-                query = query.orderByChild(modifier["path"] as String)
-                hasOrderModifier = true
-              }
-              "orderByKey" -> {
-                query = query.orderByKey()
-                hasOrderModifier = true
-              }
-              "orderByValue" -> {
-                query = query.orderByValue()
-                hasOrderModifier = true
-              }
-              "orderByPriority" -> {
-                query = query.orderByPriority()
-                hasOrderModifier = true
-              }
-            }
-          }
-          "cursor" -> {
-            when (modifier["name"] as String) {
-              "startAt" -> {
-                if (!hasOrderModifier) {
-                  // Firebase Database requires an order modifier before startAt
-                  // For observe, we can't return null, so we'll create a query that returns no data
-                  query = query.limitToFirst(0)
-                  break
-                }
-                val value = modifier["value"]
-                query = when (value) {
-                  is String -> query.startAt(value)
-                  is Number -> query.startAt(value.toDouble())
-                  is Boolean -> query.startAt(value)
-                  else -> query.startAt(value.toString())
-                }
-              }
-              "startAfter" -> {
-                if (!hasOrderModifier) {
-                  // Firebase Database requires an order modifier before startAfter
-                  // For observe, we can't return null, so we'll create a query that returns no data
-                  query = query.limitToFirst(0)
-                  break
-                }
-                val value = modifier["value"]
-                val key = modifier["key"] as String?
-                query = when (value) {
-                  is Boolean -> if (key == null) query.startAfter(value) else query.startAfter(value, key)
-                  is Number -> if (key == null) query.startAfter(value.toDouble()) else query.startAfter(value.toDouble(), key)
-                  else -> if (key == null) query.startAfter(value.toString()) else query.startAfter(value.toString(), key)
-                }
-              }
-              "endAt" -> {
-                if (!hasOrderModifier) {
-                  // Firebase Database requires an order modifier before endAt
-                  // For observe, we return all values when no order modifier is applied
-                  // This matches the expected test behavior
-                } else {
-                  val value = modifier["value"]
-                  val key = modifier["key"] as String?
-                  query = when (value) {
-                    is Boolean -> if (key == null) query.endAt(value) else query.endAt(value, key)
-                    is Number -> if (key == null) query.endAt(value.toDouble()) else query.endAt(value.toDouble(), key)
-                    else -> if (key == null) query.endAt(value.toString()) else query.endAt(value.toString(), key)
-                  }
-                }
-              }
-              "endBefore" -> {
-                if (!hasOrderModifier) {
-                  // Firebase Database requires an order modifier before endBefore
-                  // For observe, we return all values when no order modifier is applied
-                  // This matches the expected test behavior
-                } else {
-                  val value = modifier["value"]
-                  val key = modifier["key"] as String?
-                  query = when (value) {
-                    is Boolean -> if (key == null) query.endBefore(value) else query.endBefore(value, key)
-                    is Number -> if (key == null) query.endBefore(value.toDouble()) else query.endBefore(value.toDouble(), key)
-                    else -> if (key == null) query.endBefore(value.toString()) else query.endBefore(value.toString(), key)
-                  }
-                }
-              }
-            }
-          }
-          "limit" -> {
-            when (modifier["name"] as String) {
-              "limitToFirst" -> {
-                val value = (modifier["limit"] as Number).toInt()
-                query = query.limitToFirst(value)
-              }
-              "limitToLast" -> {
-                val value = (modifier["limit"] as Number).toInt()
-                query = query.limitToLast(value)
-              }
-            }
-          }
-        }
-      }
+      val query = queryFromModifiers(reference, request.modifiers)
 
       // Generate a unique channel name
-      val channelName = "firebase_database_query_${System.currentTimeMillis()}_${request.path.hashCode()}"
+      val channelName =
+        synchronized(this) { "firebase_database_query_${listenerCount++}" }
 
       // Set up the event channel
       val eventChannel = EventChannel(messenger, channelName)
       val streamHandler = EventStreamHandler(query, object : OnDispose {
         override fun run() {
           // Clean up when the stream is disposed
-         eventChannel.setStreamHandler(null)
+          eventChannel.setStreamHandler(null)
+          streamHandlers.remove(eventChannel)
         }
       })
       eventChannel.setStreamHandler(streamHandler)
@@ -974,7 +880,10 @@ class FirebaseDatabasePlugin :
     try {
       val database = getDatabaseFromPigeonApp(app)
       val reference = database.getReference(request.path)
-      reference.keepSynced(request.value ?: false)
+      val query = queryFromModifiers(reference, request.modifiers)
+
+      // Add keepSynced to the query
+      query.keepSynced(request.value ?: false)
       callback(KotlinResult.success(Unit))
     } catch (e: Exception) {
       callback(KotlinResult.failure(e))
@@ -985,117 +894,7 @@ class FirebaseDatabasePlugin :
     try {
       val database = getDatabaseFromPigeonApp(app)
       val reference = database.getReference(request.path)
-
-      // Apply query modifiers if any
-      var query: com.google.firebase.database.Query = reference
-      var hasOrderModifier = false
-
-      for (modifier in request.modifiers) {
-        when (modifier["type"] as String) {
-          "orderBy" -> {
-            when (modifier["name"] as String) {
-              "orderByChild" -> {
-                query = query.orderByChild(modifier["path"] as String)
-                hasOrderModifier = true
-              }
-              "orderByKey" -> {
-                query = query.orderByKey()
-                hasOrderModifier = true
-              }
-              "orderByValue" -> {
-                query = query.orderByValue()
-                hasOrderModifier = true
-              }
-              "orderByPriority" -> {
-                query = query.orderByPriority()
-                hasOrderModifier = true
-              }
-            }
-          }
-          "cursor" -> {
-            when (modifier["name"] as String) {
-              "startAt" -> {
-                if (!hasOrderModifier) {
-                  // Firebase Database requires an order modifier before startAt
-                  callback(KotlinResult.success(mapOf("snapshot" to null)))
-                  return
-                }
-                val value = modifier["value"]
-                val key = modifier["key"] as String?
-                query = when (value) {
-                  is Boolean -> if (key == null) query.startAt(value) else query.startAt(value, key)
-                  is Number -> if (key == null) query.startAt(value.toDouble()) else query.startAt(value.toDouble(), key)
-                  else -> if (key == null) query.startAt(value.toString()) else query.startAt(value.toString(), key)
-                }
-              }
-              "startAfter" -> {
-                if (!hasOrderModifier) {
-                  // Firebase Database requires an order modifier before startAfter
-                  callback(KotlinResult.success(mapOf("snapshot" to null)))
-                  return
-                }
-                val value = modifier["value"]
-                val key = modifier["key"] as String?
-                query = when (value) {
-                  is Boolean -> if (key == null) query.startAfter(value) else query.startAfter(value, key)
-                  is Number -> if (key == null) query.startAfter(value.toDouble()) else query.startAfter(value.toDouble(), key)
-                  else -> if (key == null) query.startAfter(value.toString()) else query.startAfter(value.toString(), key)
-                }
-              }
-              "endAt" -> {
-                if (!hasOrderModifier) {
-                  // Firebase Database requires an order modifier before endAt
-                  // For get, we return all values when no order modifier is applied
-                  // This matches the expected test behavior
-                } else {
-                  val value = modifier["value"]
-                  val key = modifier["key"] as String?
-                  query = when (value) {
-                    is Boolean -> if (key == null) query.endAt(value) else query.endAt(value, key)
-                    is Number -> if (key == null) query.endAt(value.toDouble()) else query.endAt(value.toDouble(), key)
-                    else -> if (key == null) query.endAt(value.toString()) else query.endAt(value.toString(), key)
-                  }
-                }
-              }
-              "endBefore" -> {
-                if (!hasOrderModifier) {
-                  // Firebase Database requires an order modifier before endBefore
-                  // For get, we return all values when no order modifier is applied
-                  // This matches the expected test behavior
-                } else {
-                  val value = modifier["value"]
-                  val key = modifier["key"] as String?
-                  query = when (value) {
-                    is Boolean -> if (key == null) query.endBefore(value) else query.endBefore(value, key)
-                    is Number -> if (key == null) query.endBefore(value.toDouble()) else query.endBefore(value.toDouble(), key)
-                    else -> if (key == null) query.endBefore(value.toString()) else query.endBefore(value.toString(), key)
-                  }
-                }
-              }
-            }
-          }
-          "limit" -> {
-            when (modifier["name"] as String) {
-              "limitToFirst" -> {
-                val value = when (val limit = modifier["limit"]) {
-                  is Int -> limit
-                  is Number -> limit.toInt()
-                  else -> throw IllegalArgumentException("Invalid limit value: $limit")
-                }
-                query = query.limitToFirst(value)
-              }
-              "limitToLast" -> {
-                val value = when (val limit = modifier["limit"]) {
-                  is Int -> limit
-                  is Number -> limit.toInt()
-                  else -> throw IllegalArgumentException("Invalid limit value: $limit")
-                }
-                query = query.limitToLast(value)
-              }
-            }
-          }
-        }
-      }
+      val query = queryFromModifiers(reference, request.modifiers)
 
       // Get the data
       query.get().addOnCompleteListener { task ->
