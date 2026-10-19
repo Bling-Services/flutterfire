@@ -76,7 +76,20 @@ void main() {
     test('FirebaseApp.setAutomaticResourceManagementEnabled()', () async {
       FirebaseApp app = Firebase.app(testAppName);
 
-      await app.setAutomaticResourceManagementEnabled(true);
+      try {
+        await app.setAutomaticResourceManagementEnabled(true);
+      } finally {
+        await app.setAutomaticResourceManagementEnabled(false);
+      }
+    });
+
+    test('Firebase.initializeApp() with demoProjectId', () async {
+      const demoProjectId = 'demo-flutterfire-e2e';
+      final app = await Firebase.initializeApp(demoProjectId: demoProjectId);
+      addTearDown(app.delete);
+
+      expect(app.name, demoProjectId);
+      expect(app.options.projectId, demoProjectId);
     });
   });
 }

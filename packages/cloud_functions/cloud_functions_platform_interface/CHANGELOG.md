@@ -1,3 +1,31 @@
+## 6.1.0
+
+ - **FEAT**(cloud_functions): expose allowInsecureTokenAttachment for Apple debug builds ([#18734](https://github.com/firebase/flutterfire/issues/18734)). ([8f954613](https://github.com/firebase/flutterfire/commit/8f95461306aed516911664e1e529ca89406b31aa))
+
+## 6.0.7
+
+ - Update a dependency to the latest release.
+
+## 6.0.6
+
+ - Update a dependency to the latest release.
+
+## 6.0.5
+
+ - Update a dependency to the latest release.
+
+## 6.0.4
+
+ - **FIX**(functions): cloud functions results only converted top-level maps ([#18427](https://github.com/firebase/flutterfire/issues/18427)). ([e9039eec](https://github.com/firebase/flutterfire/commit/e9039eec5b9e6a5aa7368f463d79725e1add1945))
+
+## 6.0.3
+
+ - Update a dependency to the latest release.
+
+## 6.0.2
+
+ - Update a dependency to the latest release.
+
 ## 6.0.1
 
  - Update a dependency to the latest release.

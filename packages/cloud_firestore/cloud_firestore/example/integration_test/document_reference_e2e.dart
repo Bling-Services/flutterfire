@@ -66,6 +66,35 @@ void runDocumentReferenceTests() {
           );
         });
 
+        test(
+          'cancelling before the first snapshot does not leave a listener attached',
+          () async {
+            final document =
+                await initializeTest('document-snapshot-cancel-race');
+            final stream = document.snapshots();
+
+            await stream.listen((_) {}).cancel();
+
+            final matches = <int>[];
+            final firstMatch = Completer<void>();
+            final subscription = stream.listen((snapshot) {
+              if (snapshot.data()?['n'] == 1) {
+                matches.add(1);
+                if (!firstMatch.isCompleted) {
+                  firstMatch.complete();
+                }
+              }
+            });
+            addTearDown(subscription.cancel);
+
+            await document.set({'n': 1});
+            await firstMatch.future.timeout(const Duration(seconds: 10));
+            await Future<void>.delayed(const Duration(seconds: 1));
+
+            expect(matches, [1]);
+          },
+        );
+
         test('listens to a single response', () async {
           DocumentReference<Map<String, dynamic>> document =
               await initializeTest('document-snapshot');
@@ -268,6 +297,40 @@ void runDocumentReferenceTests() {
     });
 
     group('DocumentReference.get()', () {
+      test('gets blob data', () async {
+        final document = await initializeTest('document-get-blob');
+        final blob = Blob(Uint8List.fromList(<int>[0, 127, 255]));
+        await document.set(<String, Object?>{'blob': blob});
+
+        final snapshot = await document.get();
+
+        expect(snapshot.get('blob'), blob);
+      });
+
+      test(
+        'preserves native error messages when offline',
+        () async {
+          final document =
+              await initializeTest('document-get-server-while-offline');
+          await firestore.disableNetwork();
+          addTearDown(firestore.enableNetwork);
+
+          await expectLater(
+            document.get(const GetOptions(source: Source.server)),
+            throwsA(
+              isA<FirebaseException>()
+                  .having((error) => error.code, 'code', 'unavailable')
+                  .having(
+                    (error) => error.message,
+                    'message',
+                    contains('offline'),
+                  ),
+            ),
+          );
+        },
+        skip: kIsWeb,
+      );
+
       test('gets a document from server', () async {
         DocumentReference<Map<String, dynamic>> document =
             await initializeTest('document-get-server');
@@ -630,7 +693,7 @@ void runDocumentReferenceTests() {
             ),
           );
           await expectLater(
-            fooConverter.get(),
+            fooConverter.get(const GetOptions(source: Source.server)),
             completion(
               isA<DocumentSnapshot<int>>().having((e) => e.data(), 'data', 42),
             ),
@@ -647,7 +710,7 @@ void runDocumentReferenceTests() {
           );
 
           await expectLater(
-            fooConverter.get(),
+            fooConverter.get(const GetOptions(source: Source.server)),
             completion(
               isA<DocumentSnapshot<int>>().having((e) => e.data(), 'data', 21),
             ),

@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:firebase_ai/src/api.dart';
 import 'package:firebase_ai/src/content.dart';
 import 'package:firebase_ai/src/error.dart';
 import 'package:firebase_ai/src/live_api.dart';
+import 'package:firebase_ai/src/speech_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -34,6 +34,54 @@ void main() {
       expect(speechConfigWithoutVoice.toJson(), {});
     });
 
+    test('SpeechConfig with languageCode toJson() returns correct JSON', () {
+      final speechConfigWithLanguage =
+          SpeechConfig(voiceName: 'Aoede', languageCode: 'en-US');
+      expect(speechConfigWithLanguage.toJson(), {
+        'voice_config': {
+          'prebuilt_voice_config': {'voice_name': 'Aoede'}
+        },
+        'language_code': 'en-US',
+      });
+
+      final speechConfigLanguageOnly = SpeechConfig(languageCode: 'fr-FR');
+      expect(speechConfigLanguageOnly.toJson(), {
+        'language_code': 'fr-FR',
+      });
+    });
+
+    test('SpeechConfig.multiSpeaker toJson() returns correct JSON', () {
+      final multiSpeechConfig = SpeechConfig.multiSpeaker(
+        multiSpeakerVoiceConfig: MultiSpeakerVoiceConfig(
+          speakerVoiceConfigs: [
+            SpeakerVoiceConfig(speaker: 'Joe', voiceName: 'Kore'),
+            SpeakerVoiceConfig(speaker: 'Jane', voiceName: 'Puck'),
+          ],
+        ),
+        languageCode: 'en-US',
+      );
+
+      expect(multiSpeechConfig.toJson(), {
+        'multi_speaker_voice_config': {
+          'speaker_voice_configs': [
+            {
+              'speaker': 'Joe',
+              'voice_config': {
+                'prebuilt_voice_config': {'voice_name': 'Kore'}
+              }
+            },
+            {
+              'speaker': 'Jane',
+              'voice_config': {
+                'prebuilt_voice_config': {'voice_name': 'Puck'}
+              }
+            }
+          ]
+        },
+        'language_code': 'en-US',
+      });
+    });
+
     test('ResponseModalities enum toJson() returns correct value', () {
       expect(ResponseModalities.text.toJson(), 'TEXT');
       expect(ResponseModalities.image.toJson(), 'IMAGE');
@@ -48,6 +96,7 @@ void main() {
         temperature: 0.8,
         topP: 0.95,
         topK: 40,
+        mediaResolution: MediaResolution.low,
       );
 
       expect(liveGenerationConfig.toJson(), {
@@ -61,10 +110,52 @@ void main() {
           }
         },
         'responseModalities': ['TEXT', 'AUDIO'],
+        'mediaResolution': 'MEDIA_RESOLUTION_LOW',
       });
 
       final liveGenerationConfigWithoutOptionals = LiveGenerationConfig();
       expect(liveGenerationConfigWithoutOptionals.toJson(), {});
+    });
+
+    test('GenerationConfig with SpeechConfig toJson() returns correct JSON',
+        () {
+      final config = GenerationConfig(
+        speechConfig: SpeechConfig(voiceName: 'Aoede', languageCode: 'en-US'),
+      );
+
+      expect(config.toJson(), {
+        'speechConfig': {
+          'voice_config': {
+            'prebuilt_voice_config': {'voice_name': 'Aoede'}
+          },
+          'language_code': 'en-US',
+        }
+      });
+
+      final multiConfig = GenerationConfig(
+        speechConfig: SpeechConfig.multiSpeaker(
+          multiSpeakerVoiceConfig: MultiSpeakerVoiceConfig(
+            speakerVoiceConfigs: [
+              SpeakerVoiceConfig(speaker: 'Joe', voiceName: 'Kore'),
+            ],
+          ),
+        ),
+      );
+
+      expect(multiConfig.toJson(), {
+        'speechConfig': {
+          'multi_speaker_voice_config': {
+            'speaker_voice_configs': [
+              {
+                'speaker': 'Joe',
+                'voice_config': {
+                  'prebuilt_voice_config': {'voice_name': 'Kore'}
+                }
+              }
+            ]
+          }
+        }
+      });
     });
 
     test('SessionResumptionConfig toJson() returns correct JSON', () {
@@ -107,29 +198,6 @@ void main() {
 
       final message2 = LiveServerToolCallCancellation();
       expect(message2.functionIds, null);
-    });
-
-    test('LiveClientRealtimeInput toJson() returns correct JSON', () {
-      final part = InlineDataPart('audio/pcm', Uint8List.fromList([1, 2, 3]));
-      // ignore: deprecated_member_use_from_same_package
-      final message = LiveClientRealtimeInput(mediaChunks: [part]);
-      expect(message.toJson(), {
-        'realtime_input': {
-          'media_chunks': [
-            {
-              'mimeType': 'audio/pcm',
-              'data': 'AQID',
-            }
-          ],
-        },
-      });
-
-      final message2 = LiveClientRealtimeInput();
-      expect(message2.toJson(), {
-        'realtime_input': {
-          'media_chunks': null,
-        },
-      });
     });
 
     test('LiveClientContent toJson() returns correct JSON', () {
@@ -252,11 +320,30 @@ void main() {
           throwsA(isA<FirebaseAISdkException>()));
     });
 
-    test('parseServerMessage throws VertexAISdkException for unhandled format',
+    test('parseServerMessage returns an unknown message for unhandled format',
         () {
-      final jsonObject = {'unknown': {}};
-      expect(() => parseServerResponse(jsonObject),
-          throwsA(isA<FirebaseAISdkException>()));
+      for (final jsonObject in [
+        {'unknown': {}},
+        {
+          'voiceActivity': {
+            'type': 'ACTIVITY_START',
+            'audioOffset': '2.520s',
+          },
+        },
+      ]) {
+        final response = parseServerResponse(jsonObject);
+        expect(
+          response.message,
+          isNot(anyOf(
+            isA<LiveServerContent>(),
+            isA<LiveServerToolCall>(),
+            isA<LiveServerToolCallCancellation>(),
+            isA<LiveServerSetupComplete>(),
+            isA<GoingAwayNotice>(),
+            isA<SessionResumptionUpdate>(),
+          )),
+        );
+      }
     });
 
     test(
@@ -294,6 +381,73 @@ void main() {
       expect(contentMessage.outputTranscription, isA<Transcription>());
       expect(contentMessage.outputTranscription?.text, 'output');
       expect(contentMessage.outputTranscription?.finished, false);
+    });
+
+    test('ActivityDetectionConfig toJson() returns correct JSON', () {
+      final config = ActivityDetectionConfig(
+        startSensitivity: Sensitivity.low,
+        endSensitivity: Sensitivity.high,
+        prefixPaddingMS: 100,
+        silenceDurationMS: 500,
+      );
+      expect(config.toJson(), {
+        'start_of_speech_sensitivity': 'START_SENSITIVITY_LOW',
+        'end_of_speech_sensitivity': 'END_SENSITIVITY_HIGH',
+        'prefix_padding_ms': 100,
+        'silence_duration_ms': 500,
+      });
+
+      final disabledConfig = ActivityDetectionConfig.disabled();
+      expect(disabledConfig.toJson(), {
+        'disabled': true,
+      });
+
+      final emptyConfig = ActivityDetectionConfig();
+      expect(emptyConfig.toJson(), {});
+    });
+
+    test('RealtimeInputConfig toJson() returns correct JSON', () {
+      final config = RealtimeInputConfig(
+        automaticActivityDetection: ActivityDetectionConfig.disabled(),
+        activityHandling: ActivityHandling.interrupt,
+        turnCoverage: TurnCoverage.onlyActivity,
+      );
+      expect(config.toJson(), {
+        'automatic_activity_detection': {'disabled': true},
+        'activity_handling': 'START_OF_ACTIVITY_INTERRUPTS',
+        'turn_coverage': 'TURN_INCLUDES_ONLY_ACTIVITY',
+      });
+
+      final emptyConfig = RealtimeInputConfig();
+      expect(emptyConfig.toJson(), {});
+    });
+
+    test(
+        'LiveGenerationConfig with realtimeInputConfig toJson() returns correct JSON',
+        () {
+      final liveGenerationConfig = LiveGenerationConfig(
+        realtimeInputConfig: RealtimeInputConfig(
+          automaticActivityDetection: ActivityDetectionConfig.disabled(),
+        ),
+      );
+      // Explicitly, realtimeInputConfig should not exist in generation_config toJson() directly
+      expect(liveGenerationConfig.toJson(), {});
+    });
+
+    test('LiveClientRealtimeInput activityStart and activityEnd toJson()', () {
+      final startMessage = LiveClientRealtimeInput.activityStart();
+      expect(startMessage.toJson(), {
+        'realtime_input': {
+          'activity_start': {},
+        },
+      });
+
+      final stopMessage = LiveClientRealtimeInput.activityEnd();
+      expect(stopMessage.toJson(), {
+        'realtime_input': {
+          'activity_end': {},
+        },
+      });
     });
   });
 }

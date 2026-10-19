@@ -16,25 +16,31 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_core_platform_interface/firebase_core_platform_interface.dart'
-    show FirebasePluginPlatform;
+    show FirebasePlugin;
+import 'package:http/http.dart' as http;
 import 'package:meta/meta.dart';
 
 import '../firebase_ai.dart';
 import 'base_model.dart';
+import 'firebaseai_version.dart';
+import 'platform_version_stub.dart'
+    if (dart.library.js_interop) 'platform_version_web.dart';
 
-const _defaultLocation = 'us-central1';
+const _defaultAgentPlatformLocation = 'global';
 
 /// The entrypoint for generative models.
-class FirebaseAI extends FirebasePluginPlatform {
+class FirebaseAI extends FirebasePlugin {
   FirebaseAI._({
     required this.app,
     required this.location,
-    required bool useVertexBackend,
+    required bool useAgentPlatform,
     this.appCheck,
     this.auth,
     this.useLimitedUseAppCheckTokens = false,
-  })  : _useVertexBackend = useVertexBackend,
-        super(app.name, 'plugins.flutter.io/firebase_vertexai');
+  })  : _useAgentPlatform = useAgentPlatform,
+        super(app.name, 'plugins.flutter.io/firebase_vertexai') {
+    registerWebLibraryVersion('flutter-fire-ai', packageVersion);
+  }
 
   /// The [FirebaseApp] for this current [FirebaseAI] instance.
   FirebaseApp app;
@@ -52,42 +58,33 @@ class FirebaseAI extends FirebasePluginPlatform {
   /// Whether to use App Check limited use tokens. Defaults to false.
   final bool useLimitedUseAppCheckTokens;
 
-  final bool _useVertexBackend;
+  final bool _useAgentPlatform;
 
   static final Map<String, FirebaseAI> _cachedInstances = {};
 
   /// Returns an instance using a specified [FirebaseApp].
   ///
   /// If [app] is not provided, the default Firebase app will be used.
-  /// If pass in [appCheck], request session will get protected from abusing.
-  static FirebaseAI vertexAI({
+  static FirebaseAI agentPlatform({
     FirebaseApp? app,
-    @Deprecated(
-        'Passing an explicit instance is deprecated, internal handling is now automatic.')
-    FirebaseAppCheck? appCheck,
-    @Deprecated(
-        'Passing an explicit instance is deprecated, internal handling is now automatic.')
-    FirebaseAuth? auth,
     String? location,
     bool? useLimitedUseAppCheckTokens,
   }) {
     app ??= Firebase.app();
-    appCheck ??= app.getService<FirebaseAppCheck>();
-    auth ??= app.getService<FirebaseAuth>();
-    var instanceKey = '${app.name}::vertexai::$location';
+    var instanceKey = '${app.name}::agentPlatform::$location';
 
     if (_cachedInstances.containsKey(instanceKey)) {
       return _cachedInstances[instanceKey]!;
     }
 
-    location ??= _defaultLocation;
+    location ??= _defaultAgentPlatformLocation;
 
     FirebaseAI newInstance = FirebaseAI._(
       app: app,
       location: location,
-      appCheck: appCheck,
-      auth: auth,
-      useVertexBackend: true,
+      appCheck: app.getService<FirebaseAppCheck>(),
+      auth: app.getService<FirebaseAuth>(),
+      useAgentPlatform: true,
       useLimitedUseAppCheckTokens: useLimitedUseAppCheckTokens ?? false,
     );
     _cachedInstances[instanceKey] = newInstance;
@@ -101,17 +98,9 @@ class FirebaseAI extends FirebasePluginPlatform {
   /// If pass in [appCheck], request session will get protected from abusing.
   static FirebaseAI googleAI({
     FirebaseApp? app,
-    @Deprecated(
-        'Passing an explicit instance is deprecated, internal handling is now automatic.')
-    FirebaseAppCheck? appCheck,
-    @Deprecated(
-        'Passing an explicit instance is deprecated, internal handling is now automatic.')
-    FirebaseAuth? auth,
     bool? useLimitedUseAppCheckTokens,
   }) {
     app ??= Firebase.app();
-    appCheck ??= app.getService<FirebaseAppCheck>();
-    auth ??= app.getService<FirebaseAuth>();
     var instanceKey = '${app.name}::googleai';
 
     if (_cachedInstances.containsKey(instanceKey)) {
@@ -120,10 +109,10 @@ class FirebaseAI extends FirebasePluginPlatform {
 
     FirebaseAI newInstance = FirebaseAI._(
       app: app,
-      location: _defaultLocation,
-      appCheck: appCheck,
-      auth: auth,
-      useVertexBackend: false,
+      location: _defaultAgentPlatformLocation,
+      appCheck: app.getService<FirebaseAppCheck>(),
+      auth: app.getService<FirebaseAuth>(),
+      useAgentPlatform: false,
       useLimitedUseAppCheckTokens: useLimitedUseAppCheckTokens ?? false,
     );
     _cachedInstances[instanceKey] = newInstance;
@@ -142,6 +131,9 @@ class FirebaseAI extends FirebasePluginPlatform {
   /// The optional [safetySettings] and [generationConfig] can be used to
   /// control and guide the generation. See [SafetySetting] and
   /// [GenerationConfig] for details.
+  ///
+  /// The optional [httpClient] can be used to customize HTTP request handling,
+  /// such as adding support for cancelling in-flight requests.
   GenerativeModel generativeModel({
     required String model,
     List<SafetySetting>? safetySettings,
@@ -149,12 +141,13 @@ class FirebaseAI extends FirebasePluginPlatform {
     List<Tool>? tools,
     ToolConfig? toolConfig,
     Content? systemInstruction,
+    http.Client? httpClient,
   }) {
     return createGenerativeModel(
       model: model,
       app: app,
       appCheck: appCheck,
-      useVertexBackend: _useVertexBackend,
+      useAgentPlatform: _useAgentPlatform,
       auth: auth,
       location: location,
       safetySettings: safetySettings,
@@ -163,27 +156,8 @@ class FirebaseAI extends FirebasePluginPlatform {
       toolConfig: toolConfig,
       systemInstruction: systemInstruction,
       useLimitedUseAppCheckTokens: useLimitedUseAppCheckTokens,
+      httpClient: httpClient,
     );
-  }
-
-  /// Create a [ImagenModel].
-  ///
-  /// The optional [safetySettings] can be used to control and guide the
-  /// generation. See [ImagenSafetySettings] for details.
-  ImagenModel imagenModel(
-      {required String model,
-      ImagenGenerationConfig? generationConfig,
-      ImagenSafetySettings? safetySettings}) {
-    return createImagenModel(
-        app: app,
-        location: location,
-        model: model,
-        useVertexBackend: _useVertexBackend,
-        generationConfig: generationConfig,
-        safetySettings: safetySettings,
-        appCheck: appCheck,
-        auth: auth,
-        useLimitedUseAppCheckTokens: useLimitedUseAppCheckTokens);
   }
 
   /// Create a [LiveGenerativeModel] for real-time interaction.
@@ -200,7 +174,7 @@ class FirebaseAI extends FirebasePluginPlatform {
       app: app,
       location: location,
       model: model,
-      useVertexBackend: _useVertexBackend,
+      useAgentPlatform: _useAgentPlatform,
       liveGenerationConfig: liveGenerationConfig,
       tools: tools,
       systemInstruction: systemInstruction,
@@ -218,24 +192,9 @@ class FirebaseAI extends FirebasePluginPlatform {
     return createTemplateGenerativeModel(
         app: app,
         location: location,
-        useVertexBackend: _useVertexBackend,
+        useAgentPlatform: _useAgentPlatform,
         useLimitedUseAppCheckTokens: useLimitedUseAppCheckTokens,
         auth: auth,
         appCheck: appCheck);
-  }
-
-  /// Returns a [TemplateImagenModel] instance.
-  ///
-  /// This is an experimental API and may change in the future.
-  @experimental
-  TemplateImagenModel templateImagenModel() {
-    return createTemplateImagenModel(
-      app: app,
-      location: location,
-      useVertexBackend: _useVertexBackend,
-      useLimitedUseAppCheckTokens: useLimitedUseAppCheckTokens,
-      auth: auth,
-      appCheck: appCheck,
-    );
   }
 }

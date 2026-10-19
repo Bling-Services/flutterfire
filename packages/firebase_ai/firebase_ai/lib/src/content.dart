@@ -41,8 +41,10 @@ final class Content {
   static Content text(String text) => Content('user', [TextPart(text)]);
 
   /// Return a [Content] with [InlineDataPart].
-  static Content inlineData(String mimeType, Uint8List bytes) =>
-      Content('user', [InlineDataPart(mimeType, bytes)]);
+  static Content inlineData(String mimeType, Uint8List bytes,
+          {MediaResolution? mediaResolution}) =>
+      Content('user',
+          [InlineDataPart(mimeType, bytes, mediaResolution: mediaResolution)]);
 
   /// Return a [Content] with multiple [Part]s.
   static Content multi(Iterable<Part> parts) => Content('user', [...parts]);
@@ -53,11 +55,11 @@ final class Content {
   /// Return a [Content] with [FunctionResponse].
   static Content functionResponse(String name, Map<String, Object?> response,
           {String? id}) =>
-      Content('function', [FunctionResponse(name, response, id: id)]);
+      Content('user', [FunctionResponse(name, response, id: id)]);
 
   /// Return a [Content] with multiple [FunctionResponse].
   static Content functionResponses(Iterable<FunctionResponse> responses) =>
-      Content('function', responses.toList());
+      Content('user', responses.toList());
 
   /// Return a [Content] with [TextPart] of system instruction.
   static Content system(String instructions) =>
@@ -65,7 +67,7 @@ final class Content {
 
   /// Convert the [Content] to json format.
   Map<String, Object?> toJson() => {
-        if (role case final role?) 'role': role,
+        if (role case final role?) 'role': role == 'function' ? 'user' : role,
         'parts': parts.map((p) {
           return p.toJson();
         }).toList(),
@@ -100,6 +102,10 @@ Part parsePart(Object? jsonObject) {
   final thoughtSignature = jsonObject.containsKey('thoughtSignature')
       ? jsonObject['thoughtSignature']! as String
       : null;
+  final mediaResolution = switch (jsonObject['mediaResolution']) {
+    {'level': final String level} => MediaResolution.parseValue(level),
+    _ => null,
+  };
 
   if (jsonObject.containsKey('functionCall')) {
     final functionCall = jsonObject['functionCall'];
@@ -157,6 +163,7 @@ Part parsePart(Object? jsonObject) {
         inlineDataResult['mimeType'] as String,
         base64Decode(inlineDataResult['data'] as String),
         willContinue: inlineDataResult['willContinue'] as bool?,
+        mediaResolution: mediaResolution,
         isThought: isThought,
         thoughtSignature: thoughtSignature,
       );
@@ -168,13 +175,21 @@ Part parsePart(Object? jsonObject) {
     {'text': final String text} => TextPart._(text,
         isThought: isThought, thoughtSignature: thoughtSignature),
     {
+      'fileData': {
+        'fileUri': final String fileUri,
+        'mimeType': final String mimeType,
+      }
+    } ||
+    {
       'file_data': {
         'file_uri': final String fileUri,
         'mime_type': final String mimeType,
       }
     } =>
       FileData._(mimeType, fileUri,
-          isThought: isThought, thoughtSignature: thoughtSignature),
+          mediaResolution: mediaResolution,
+          isThought: isThought,
+          thoughtSignature: thoughtSignature),
     _ => () {
         log('unhandled part format: $jsonObject');
         return UnknownPart(jsonObject);
@@ -261,6 +276,7 @@ final class InlineDataPart extends Part {
     this.mimeType,
     this.bytes, {
     this.willContinue,
+    this.mediaResolution,
     bool? isThought,
   }) : super(
           isThought: isThought,
@@ -273,6 +289,7 @@ final class InlineDataPart extends Part {
     this.mimeType,
     this.bytes, {
     this.willContinue,
+    this.mediaResolution,
     bool? isThought,
     String? thoughtSignature,
   }) : super(
@@ -284,6 +301,7 @@ final class InlineDataPart extends Part {
     this.mimeType,
     this.bytes, {
     this.willContinue,
+    this.mediaResolution,
     bool? isThought,
     String? thoughtSignature,
   }) : super(
@@ -292,7 +310,8 @@ final class InlineDataPart extends Part {
         );
 
   /// File type of the [InlineDataPart].
-  /// https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/send-multimodal-prompts#media_requirements
+  ///
+  /// Can find details in [FirebaseAIMimeTypes]
   final String mimeType;
 
   /// Data contents in bytes.
@@ -300,6 +319,12 @@ final class InlineDataPart extends Part {
 
   /// Whether there's more inline data coming for streaming.
   final bool? willContinue;
+
+  /// The resolution to use for this media part.
+  ///
+  /// This overrides the request-level media resolution for this part.
+  final MediaResolution? mediaResolution;
+
   @override
   Object toJson() {
     final superJson = super.toJson() as Map<String, Object?>;
@@ -310,6 +335,8 @@ final class InlineDataPart extends Part {
         'mimeType': mimeType,
         if (willContinue != null) 'willContinue': willContinue,
       },
+      if (mediaResolution != null)
+        'mediaResolution': {'level': mediaResolution!.toJson()},
     };
   }
 
@@ -433,6 +460,7 @@ final class FileData extends Part {
   const FileData(
     this.mimeType,
     this.fileUri, {
+    this.mediaResolution,
     bool? isThought,
   }) : super(
           isThought: isThought,
@@ -444,6 +472,7 @@ final class FileData extends Part {
   const FileData.forTest(
     this.mimeType,
     this.fileUri, {
+    this.mediaResolution,
     bool? isThought,
     String? thoughtSignature,
   }) : super(
@@ -454,6 +483,7 @@ final class FileData extends Part {
   const FileData._(
     this.mimeType,
     this.fileUri, {
+    this.mediaResolution,
     bool? isThought,
     String? thoughtSignature,
   }) : super(
@@ -462,11 +492,17 @@ final class FileData extends Part {
         );
 
   /// File type of the [FileData].
-  /// https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/send-multimodal-prompts#media_requirements
+  ///
+  /// Can find details in [FirebaseAIMimeTypes]
   final String mimeType;
 
   /// The gs link for Firebase Storage reference
   final String fileUri;
+
+  /// The resolution to use for this media part.
+  ///
+  /// This overrides the request-level media resolution for this part.
+  final MediaResolution? mediaResolution;
 
   @override
   Object toJson() {
@@ -474,6 +510,8 @@ final class FileData extends Part {
     return <String, Object?>{
       ...superJson,
       'file_data': {'file_uri': fileUri, 'mime_type': mimeType},
+      if (mediaResolution != null)
+        'mediaResolution': {'level': mediaResolution!.toJson()},
     };
   }
 }

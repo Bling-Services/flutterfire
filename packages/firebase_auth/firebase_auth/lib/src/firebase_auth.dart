@@ -6,7 +6,7 @@
 part of '../firebase_auth.dart';
 
 /// The entry point of the Firebase Authentication SDK.
-class FirebaseAuth extends FirebasePluginPlatform implements FirebaseService {
+class FirebaseAuth extends FirebasePlugin implements FirebaseService {
   // Cached instances of [FirebaseAuth].
   static Map<String, FirebaseAuth> _firebaseAuthInstances = {};
 
@@ -297,6 +297,10 @@ class FirebaseAuth extends FirebasePluginPlatform implements FirebaseService {
   /// To complete the password reset, call [confirmPasswordReset] with the code supplied
   /// in the email sent to the user, along with the new password specified by the user.
   ///
+  /// If email enumeration protection is enabled for the Firebase project, this
+  /// method may complete successfully even when the email does not correspond
+  /// to an existing user.
+  ///
   /// May throw a [FirebaseAuthException] with the following error codes:
   ///
   /// - **auth/invalid-email**\
@@ -312,7 +316,8 @@ class FirebaseAuth extends FirebasePluginPlatform implements FirebaseService {
   /// - **auth/unauthorized-continue-uri**\
   ///   The domain of the continue URL is not whitelisted. Whitelist the domain in the Firebase console.
   /// - **auth/user-not-found**\
-  ///   Thrown if there is no user corresponding to the email address. Note: This exception is no longer thrown when enabling email enumeration protection.
+  ///   Thrown if there is no user corresponding to the email address. Note: This
+  ///   exception is not thrown when email enumeration protection is enabled.
   Future<void> sendPasswordResetEmail({
     required String email,
     ActionCodeSettings? actionCodeSettings,
@@ -392,9 +397,15 @@ class FirebaseAuth extends FirebasePluginPlatform implements FirebaseService {
   ///   Key Sharing capabilities must be enabled for your app via XCode (Project
   ///   settings > Capabilities). To learn more, visit the
   ///   [Apple documentation](https://developer.apple.com/documentation/security/keychain_services/keychain_items/sharing_access_to_keychain_items_among_a_collection_of_apps).
+  ///
+  /// [migrateCurrentUser] This setting only applies to iOS and macOS platforms.
+  ///   When `true`, the currently signed-in user is migrated to
+  ///   [userAccessGroup]. [userAccessGroup] must be non-null when this is
+  ///   `true`. This may replace a user already stored in that access group.
   Future<void> setSettings({
     bool appVerificationDisabledForTesting = false,
     String? userAccessGroup,
+    bool migrateCurrentUser = false,
     String? phoneNumber,
     String? smsCode,
     bool? forceRecaptchaFlow,
@@ -402,6 +413,7 @@ class FirebaseAuth extends FirebasePluginPlatform implements FirebaseService {
     return _delegate.setSettings(
       appVerificationDisabledForTesting: appVerificationDisabledForTesting,
       userAccessGroup: userAccessGroup,
+      migrateCurrentUser: migrateCurrentUser,
       phoneNumber: phoneNumber,
       smsCode: smsCode,
       forceRecaptchaFlow: forceRecaptchaFlow,
@@ -461,12 +473,10 @@ class FirebaseAuth extends FirebasePluginPlatform implements FirebaseService {
   /// A [FirebaseAuthException] maybe thrown with the following error code:
   /// - **account-exists-with-different-credential**:
   ///  - Thrown if there already exists an account with the email address
-  ///    asserted by the credential.
-  // ignore: deprecated_member_use_from_same_package
-  ///    Resolve this by asking
-  ///    the user to sign in using one of the returned providers.
-  ///    Once the user is signed in, the original credential can be linked to
-  ///    the user with [linkWithCredential].
+  ///    asserted by the credential. Resolve this by asking the user to sign in
+  ///    with a provider already linked to that email address. Once the user is
+  ///    signed in, the original credential can be linked to the user with
+  ///    [linkWithCredential].
   /// - **invalid-credential**:
   ///  - Thrown if the credential is malformed or has expired.
   /// - **operation-not-allowed**:
@@ -628,6 +638,10 @@ class FirebaseAuth extends FirebasePluginPlatform implements FirebaseService {
   }
 
   /// Signs in with an AuthProvider using native authentication flow.
+  ///
+  /// On macOS, only [AppleAuthProvider] is supported: the Firebase Apple SDK
+  /// implements the OAuth web sign-in flow on iOS only. Any other provider
+  /// throws a [FirebaseAuthException] with the code `unsupported-platform`.
   ///
   /// A [FirebaseAuthException] maybe thrown with the following error code:
   /// - **user-disabled**:

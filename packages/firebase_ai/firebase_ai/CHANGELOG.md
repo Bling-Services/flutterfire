@@ -1,3 +1,55 @@
+## 5.0.0
+
+> Note: This release has breaking changes.
+
+ - **REVERT**(firebaseai): Rename Agent Platform to Gemini Enterprise ([#18740](https://github.com/firebase/flutterfire/issues/18740)) ([#18759](https://github.com/firebase/flutterfire/issues/18759)). ([3f647996](https://github.com/firebase/flutterfire/commit/3f6479969c5a1a27bf7087ac45c643557d0ac396))
+ - **FIX**(ai): keep auto-executed function turns in TemplateChatSession history ([#18758](https://github.com/firebase/flutterfire/issues/18758)). ([c650d79b](https://github.com/firebase/flutterfire/commit/c650d79b65d73a048710184a3f5ae4118f979ca9))
+ - **FIX**(apple): build on Firebase Apple SDK 13 and require macOS 11 for Swift packages ([#18783](https://github.com/firebase/flutterfire/issues/18783)). ([aca14eab](https://github.com/firebase/flutterfire/commit/aca14eab5305d80011af473bc7dd289ef71b75e8))
+ - **FIX**(android): build on Firebase BoM 35 and require minSdk 24 ([#18782](https://github.com/firebase/flutterfire/issues/18782)). ([7555707d](https://github.com/firebase/flutterfire/commit/7555707dec23382dfce1e7841c00446a21c9a406))
+ - **FIX**(firebase_ai): parse camelCase fileData response parts ([#18754](https://github.com/firebase/flutterfire/issues/18754)). ([9f70ff93](https://github.com/firebase/flutterfire/commit/9f70ff938591e8a457276cdfa664951abcb9e214))
+ - **FEAT**(firebaseai): Rename Agent Platform to Gemini Enterprise ([#18740](https://github.com/firebase/flutterfire/issues/18740)). ([1035bd97](https://github.com/firebase/flutterfire/commit/1035bd97258c11fd31b25f4a8be356bfde38dd64))
+ - **FEAT**(firebaseai): Deprecated `candidateCount`, `temperature`, `topP`, `topK`, `presence… ([#18694](https://github.com/firebase/flutterfire/issues/18694)). ([2c1e26fb](https://github.com/firebase/flutterfire/commit/2c1e26fb2f2309a9e545cb3734be2fbb21c1a52d))
+ - **BREAKING** **REFACTOR**(firebaseai): remove deprecated apis ([#18708](https://github.com/firebase/flutterfire/issues/18708)). ([d857508b](https://github.com/firebase/flutterfire/commit/d857508be36f8997c5911b464b2e8c71ce6d8f3d))
+ - **BREAKING** **FIX**(firebaseai): keep LiveSession.receive() open on unrecognized server messages ([#18770](https://github.com/firebase/flutterfire/issues/18770)). ([304c435c](https://github.com/firebase/flutterfire/commit/304c435cfe398b0f58fd28a6eaac2ae9af0593ea))
+
+## 4.0.0
+
+> Note: This release has breaking changes.
+
+ - **FIX**(ai): reuse a persistent http.Client in HttpApiClient ([#18603](https://github.com/firebase/flutterfire/issues/18603)). ([87a4137c](https://github.com/firebase/flutterfire/commit/87a4137c08f2eb5c7ba4ba79ded82baa09cafe37))
+ - **FIX**(ci): bump Kotlin Gradle plugin to 2.3.0 ([#18600](https://github.com/firebase/flutterfire/issues/18600)). ([4c3865e2](https://github.com/firebase/flutterfire/commit/4c3865e2e56bf59904a9f48a6e70f0f963df2cda))
+ - **FIX**(ci): align Android toolchain and analyzer with Flutter 3.47 ([#18566](https://github.com/firebase/flutterfire/issues/18566)). ([87ace849](https://github.com/firebase/flutterfire/commit/87ace8496fec75c461f3b29a9b8a85d46e286957))
+ - **FEAT**(firebaseai): realtime input config ([#18447](https://github.com/firebase/flutterfire/issues/18447)). ([09d423b8](https://github.com/firebase/flutterfire/commit/09d423b800a966fead9eba1f4bdbc322d2720335))
+ - **BREAKING** **REFACTOR**(firebaseai): Removed deprecated Imagen methods and types due to Imagen models being shut down ([#18577](https://github.com/firebase/flutterfire/issues/18577)). ([989a177f](https://github.com/firebase/flutterfire/commit/989a177fb5f3ed93a6c4c0f76d58d2e6ab2b9d87))
+
+## 3.15.0
+
+ - **FEAT**(firebaseai): Rename vertexAI to agentPlatform ([#18467](https://github.com/firebase/flutterfire/issues/18467)). ([2f942f28](https://github.com/firebase/flutterfire/commit/2f942f28586a6fcc82b1de454b707633ba8e2e04))
+
+## 3.14.1
+
+ - Update a dependency to the latest release.
+
+## 3.14.0
+
+ - **FEAT**(ai): add a list of the MIME types supported by AI Logic ([#18429](https://github.com/firebase/flutterfire/issues/18429)). ([755bf69b](https://github.com/firebase/flutterfire/commit/755bf69b0add6152426d6c899b9fa262c8e4f809))
+
+## 3.13.1
+
+ - Update a dependency to the latest release.
+
+## 3.13.0
+
+ - **FIX**(ai): firebase_ai server template image inputs passed as InlineDataPart were serialized as normal generative inlineData ([#18350](https://github.com/firebase/flutterfire/issues/18350)). ([f3c53792](https://github.com/firebase/flutterfire/commit/f3c53792f1acf19ab1c2c7c3d157fca3a183b5d1))
+ - **FEAT**(firebaseai): Add speech config and TTS sample page ([#18358](https://github.com/firebase/flutterfire/issues/18358)). ([0af51b50](https://github.com/firebase/flutterfire/commit/0af51b501603a611c7c6800efd9d98c478abab4d))
+ - **FEAT**(ai): add language code support for SpeechConfig ([#18353](https://github.com/firebase/flutterfire/issues/18353)). ([3471afc7](https://github.com/firebase/flutterfire/commit/3471afc7ffa7bae58981683982d58d669ac71d50))
+ - **FEAT**(ai): add mediaResolution parameter ([#18354](https://github.com/firebase/flutterfire/issues/18354)). ([79547569](https://github.com/firebase/flutterfire/commit/795475692384385a17511b295640ad6f8ab625f6))
+ - **FEAT**(ai): add support for cancellable clients for in-flight requests ([#18349](https://github.com/firebase/flutterfire/issues/18349)). ([566cfed4](https://github.com/firebase/flutterfire/commit/566cfed42599318cf0f24eefc5d696223e46128c))
+
+## 3.12.2
+
+ - Update a dependency to the latest release.
+
 ## 3.12.1
 
  - Update a dependency to the latest release.

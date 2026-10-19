@@ -662,7 +662,14 @@ FlutterStandardMethodCodec *_codec;
     FIRFirestore *firestore = [self getFIRFirestoreFromAppNameFromPigeon:app];
     FIRDocumentReference *document = [firestore documentWithPath:path];
 
-    FIRTransaction *transaction = self->_transactions[transactionId];
+    FIRTransaction *transaction;
+    NSError *error = nil;
+    FIRDocumentSnapshot *snapshot = nil;
+    // Read under the lock so the update block cannot return mid-read.
+    @synchronized(self->_transactions) {
+      transaction = self->_transactions[transactionId];
+      snapshot = [transaction getDocument:document error:&error];
+    }
 
     if (transaction == nil) {
       completion(
@@ -674,9 +681,6 @@ FlutterStandardMethodCodec *_codec;
                     details:nil]);
       return;
     }
-
-    NSError *error = nil;
-    FIRDocumentSnapshot *snapshot = [transaction getDocument:document error:&error];
 
     if (error != nil) {
       completion(nil, [self convertToFlutterError:error]);
@@ -782,10 +786,16 @@ FlutterStandardMethodCodec *_codec;
           timeout:timeout
           maxAttempts:maxAttempts
           started:^(FIRTransaction *_Nonnull transaction) {
-            self->_transactions[transactionId] = transaction;
+            // Called from Firestore's transaction worker queue; multiple
+            // in-flight transactions may hit this concurrently.
+            @synchronized(self->_transactions) {
+              self->_transactions[transactionId] = transaction;
+            }
           }
           ended:^{
-            self->_transactions[transactionId] = nil;
+            @synchronized(self->_transactions) {
+              [self->_transactions removeObjectForKey:transactionId];
+            }
           }];
 
   _transactionHandlers[transactionId] = handler;

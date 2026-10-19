@@ -95,6 +95,7 @@ class FirebaseMessagingWeb extends FirebaseMessagingPlatform {
   }
 
   @override
+  @Deprecated('Use unregister() and onUnregistered instead.')
   Future<void> deleteToken() async {
     _delegate;
 
@@ -112,7 +113,51 @@ class FirebaseMessagingWeb extends FirebaseMessagingPlatform {
   }
 
   @override
-  Future<String?> getToken({String? vapidKey}) async {
+  Future<void> register({
+    String? vapidKey,
+    String? serviceWorkerScriptPath,
+  }) async {
+    _delegate;
+
+    if (!_initialized) {
+      // no-op for unsupported browsers
+      return;
+    }
+
+    return convertWebExceptions(
+      () => _delegate.register(
+        vapidKey: vapidKey,
+        serviceWorkerScriptPath: serviceWorkerScriptPath,
+      ),
+    );
+  }
+
+  @override
+  Future<void> unregister() async {
+    _delegate;
+
+    if (!_initialized) {
+      // no-op for unsupported browsers
+      return;
+    }
+
+    return convertWebExceptions(_delegate.unregister);
+  }
+
+  @override
+  Stream<String> get onRegistered {
+    return _delegate.onRegistered;
+  }
+
+  @override
+  Stream<String> get onUnregistered {
+    return _delegate.onUnregistered;
+  }
+
+  @override
+  @Deprecated('Use register() and onRegistered instead.')
+  Future<String?> getToken(
+      {String? vapidKey, String? serviceWorkerScriptPath}) async {
     _delegate;
 
     if (!_initialized) {
@@ -121,11 +166,13 @@ class FirebaseMessagingWeb extends FirebaseMessagingPlatform {
     }
 
     return convertWebExceptions(
-      () => _delegate.getToken(vapidKey: vapidKey),
+      () => _delegate.getToken(
+          vapidKey: vapidKey, serviceWorkerScriptPath: serviceWorkerScriptPath),
     );
   }
 
   @override
+  @Deprecated('Use onRegistered instead.')
   Stream<String> get onTokenRefresh {
     // onTokenRefresh is deprecated on web, however since this is a non-critical
     // api we just return a noop stream to keep functionality the same across

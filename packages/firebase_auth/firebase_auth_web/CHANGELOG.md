@@ -1,3 +1,37 @@
+## 6.3.1
+
+ - **FIX**(auth,web): fail onWaitInitState instead of hanging when the first auth state is an error ([#18705](https://github.com/firebase/flutterfire/issues/18705)). ([05c4bac8](https://github.com/firebase/flutterfire/commit/05c4bac803b2f55b02ddc5b87ea6aa4ef654ddca))
+ - **FIX**(auth,web): connect Auth emulator after reload when sessionStorage already has the origin ([#18690](https://github.com/firebase/flutterfire/issues/18690)). ([3740a2da](https://github.com/firebase/flutterfire/commit/3740a2da18d1b119fb897dd4f2c8951127f03ea6))
+
+## 6.3.0
+
+ - **FIX**(auth,web): convert Auth errors that omit customData without throwing ([#18686](https://github.com/firebase/flutterfire/issues/18686)). ([5e518361](https://github.com/firebase/flutterfire/commit/5e518361ce7f94923437d8b0e41add7ca75083ef))
+ - **FEAT**(auth,ios): add support for `migrateCurrentUser` ([#18460](https://github.com/firebase/flutterfire/issues/18460)). ([b4eeafba](https://github.com/firebase/flutterfire/commit/b4eeafba347abed13e5410263556e9a4bff1b96e))
+
+## 6.2.7
+
+ - Update a dependency to the latest release.
+
+## 6.2.6
+
+ - Update a dependency to the latest release.
+
+## 6.2.5
+
+ - Update a dependency to the latest release.
+
+## 6.2.4
+
+ - Update a dependency to the latest release.
+
+## 6.2.3
+
+ - Update a dependency to the latest release.
+
+## 6.2.2
+
+ - Update a dependency to the latest release.
+
 ## 6.2.1
 
  - Update a dependency to the latest release.

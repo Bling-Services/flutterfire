@@ -1,3 +1,34 @@
+## 8.0.8
+
+ - **REFACTOR**(firestore): deprecate setIndexConfigurationFromJSON ([#18801](https://github.com/firebase/flutterfire/issues/18801)). ([caf683df](https://github.com/firebase/flutterfire/commit/caf683dfaefcdd2eea5a9d667b35e149bd916928))
+ - **FIX**(firestore,windows): report unimplemented for sum/average aggregations ([#18628](https://github.com/firebase/flutterfire/issues/18628)). ([a646d554](https://github.com/firebase/flutterfire/commit/a646d5546a4686b21b2b0015a9d4e5f41ca92757))
+
+## 8.0.7
+
+ - **REFACTOR**(platform_interface): replace Flutter UI and foundation imports with package:meta ([#18604](https://github.com/firebase/flutterfire/issues/18604)). ([fef6d420](https://github.com/firebase/flutterfire/commit/fef6d42090ea275f07117c085bd04710d9df51bc))
+ - **FIX**(firestore): avoid completing transaction future twice ([#18554](https://github.com/firebase/flutterfire/issues/18554)). ([94e36f1d](https://github.com/firebase/flutterfire/commit/94e36f1da0ad26b3ca74d6bde0799f17a0be5b5e))
+
+## 8.0.6
+
+ - **FIX**(firestore,android): clean up Android transaction listeners on completion ([#18475](https://github.com/firebase/flutterfire/issues/18475)). ([ae002c7c](https://github.com/firebase/flutterfire/commit/ae002c7ca8ae405ebc901bfe17e6724a48075bca))
+ - **FIX**(firestore): Preserves microseconds when serializing implicit DateTime values ([#18435](https://github.com/firebase/flutterfire/issues/18435)). ([068c3094](https://github.com/firebase/flutterfire/commit/068c30946912d8a3d5f24455fcb4bc00202e60ee))
+
+## 8.0.5
+
+ - Update a dependency to the latest release.
+
+## 8.0.4
+
+ - **DOCS**(cloud_firestore): Remove Incorrect API Documentation ([#18423](https://github.com/firebase/flutterfire/issues/18423)). ([4b1056fd](https://github.com/firebase/flutterfire/commit/4b1056fdbf9da95f630d35ecd3ae605839cdb010))
+
+## 8.0.3
+
+ - Update a dependency to the latest release.
+
+## 8.0.2
+
+ - Update a dependency to the latest release.
+
 ## 8.0.1
 
  - Update a dependency to the latest release.

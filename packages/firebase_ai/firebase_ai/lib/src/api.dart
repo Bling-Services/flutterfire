@@ -16,26 +16,18 @@ import 'content.dart';
 import 'error.dart';
 import 'image_config.dart';
 import 'schema.dart';
+import 'speech_config.dart';
 import 'tool.dart' show Tool, ToolConfig;
 
 /// Response for Count Tokens
 final class CountTokensResponse {
   // ignore: public_member_api_docs
-  CountTokensResponse(this.totalTokens,
-      {this.totalBillableCharacters, this.promptTokensDetails});
+  CountTokensResponse(this.totalTokens, {this.promptTokensDetails});
 
   /// The number of tokens that the `model` tokenizes the `prompt` into.
   ///
   /// Always non-negative.
   final int totalTokens;
-
-  /// The number of characters that the `model` could bill at.
-  ///
-  /// Always non-negative.
-  @Deprecated(
-    'Use `totalTokens` instead; Gemini 2.0 series models and newer are always billed by token count.',
-  )
-  final int? totalBillableCharacters;
 
   /// List of modalities that were processed in the request input.
   final List<ModalityTokenCount>? promptTokensDetails;
@@ -344,7 +336,7 @@ final class WebGroundingChunk {
 
   /// The domain of the original URI from which the content was retrieved.
   ///
-  /// This field is only populated when using the Vertex AI Gemini API.
+  /// This field is only populated when using the Agent Platform Gemini API.
   final String? domain;
 }
 
@@ -424,7 +416,7 @@ final class SearchEntryPoint {
 /// comply with the "Grounding with Google Search" usage requirements for your
 /// chosen API provider:
 /// [Gemini Developer API](https://ai.google.dev/gemini-api/terms#grounding-with-google-search)
-/// or Vertex AI Gemini API (see [Service Terms](https://cloud.google.com/terms/service-terms)
+/// or Agent Platform Gemini API (see [Service Terms](https://cloud.google.com/terms/service-terms)
 /// section within the Service Specific Terms).
 final class GroundingMetadata {
   // ignore: public_member_api_docs
@@ -446,12 +438,6 @@ final class GroundingMetadata {
   /// Each chunk represents a piece of retrieved content (e.g., from a web
   /// page) that the model used to ground its response.
   final List<GroundingChunk> groundingChunks;
-
-  /// A list of [GroundingSupport]s.
-  ///
-  /// Keeping for backwards compatibility. See b/477107542.
-  @Deprecated('Use groundingSupports instead')
-  List<GroundingSupport> get groundingSupport => groundingSupports;
 
   /// A list of [GroundingSupport]s.
   ///
@@ -1067,6 +1053,41 @@ enum ResponseModalities {
   String toJson() => _jsonString;
 }
 
+/// The media resolution to use for media inputs.
+enum MediaResolution {
+  /// Default media resolution selected by the model.
+  unspecified('MEDIA_RESOLUTION_UNSPECIFIED'),
+
+  /// Lower token count, resulting in faster processing and lower cost.
+  low('MEDIA_RESOLUTION_LOW'),
+
+  /// A balance between detail, cost, and latency.
+  medium('MEDIA_RESOLUTION_MEDIUM'),
+
+  /// Higher token count, providing more detail for media inputs.
+  high('MEDIA_RESOLUTION_HIGH'),
+
+  /// Highest token count for image inputs.
+  ///
+  /// This value is only supported on individual media parts.
+  ultraHigh('MEDIA_RESOLUTION_ULTRA_HIGH');
+
+  const MediaResolution(this._jsonString);
+  final String _jsonString;
+
+  /// Parse a media resolution from a JSON value.
+  static MediaResolution parseValue(String value) => switch (value) {
+        'MEDIA_RESOLUTION_LOW' => MediaResolution.low,
+        'MEDIA_RESOLUTION_MEDIUM' => MediaResolution.medium,
+        'MEDIA_RESOLUTION_HIGH' => MediaResolution.high,
+        'MEDIA_RESOLUTION_ULTRA_HIGH' => MediaResolution.ultraHigh,
+        _ => MediaResolution.unspecified,
+      };
+
+  // ignore: public_member_api_docs
+  String toJson() => _jsonString;
+}
+
 /// A preset that balances the trade-off between reasoning quality and response
 /// speed for a model's "thinking" process.
 ///
@@ -1093,19 +1114,6 @@ enum ThinkingLevel {
 
 /// Config for thinking features.
 class ThinkingConfig {
-  /// Deprecated public constructor of [ThinkingConfig].
-  ///
-  /// Keep for backwards compatibility.
-  /// [thinkingBudget] and [thinkingLevel] cannot be set at the same time.
-  @Deprecated(
-      'Use ThinkingConfig.withThinkingBudget() or ThinkingConfig.withThinkingLevel() instead.')
-  ThinkingConfig(
-      {this.thinkingBudget, this.thinkingLevel, this.includeThoughts})
-      : assert(
-          !(thinkingBudget != null && thinkingLevel != null),
-          'thinkingBudget and thinkingLevel cannot be set at the same time.',
-        );
-
   // Private constructor
   ThinkingConfig._(
       {this.thinkingBudget, this.thinkingLevel, this.includeThoughts});
@@ -1170,12 +1178,19 @@ abstract class BaseGenerationConfig {
     this.presencePenalty,
     this.frequencyPenalty,
     this.responseModalities,
-  });
+    this.mediaResolution,
+    this.speechConfig,
+  }) : assert(mediaResolution != MediaResolution.ultraHigh,
+            'MediaResolution.ultraHigh is only supported on individual media parts.');
 
   /// Number of generated responses to return.
   ///
   /// This value must be between [1, 8], inclusive. If unset, this will default
   /// to 1.
+  @Deprecated(
+      'Not supported in Gemini 3.x and later models. The model will ignore '
+      'this parameter if it is included in a request. Make parallel requests '
+      'instead.')
   final int? candidateCount;
 
   /// The maximum number of tokens to include in a candidate.
@@ -1190,6 +1205,10 @@ abstract class BaseGenerationConfig {
   ///
   /// Values can range from `[0.0, infinity]`, inclusive. A value temperature
   /// must be greater than 0.0.
+  @Deprecated(
+      'Not supported in Gemini 3.x and later models. The model will ignore '
+      'this parameter if it is included in a request. Omit this parameter and '
+      'let the model manage sampling automatically.')
   final double? temperature;
 
   /// The maximum cumulative probability of tokens to consider when sampling.
@@ -1201,6 +1220,10 @@ abstract class BaseGenerationConfig {
   /// on the cumulative probability.
   ///
   /// Note: The default value varies by model.
+  @Deprecated(
+      'Not supported in Gemini 3.x and later models. The model will ignore '
+      'this parameter if it is included in a request. Omit this parameter and '
+      'let the model manage sampling automatically.')
   final double? topP;
 
   /// The maximum number of tokens to consider when sampling.
@@ -1209,6 +1232,10 @@ abstract class BaseGenerationConfig {
   /// considers the set of `top_k` most probable tokens. Defaults to 40.
   ///
   /// Note: The default value varies by model.
+  @Deprecated(
+      'Not supported in Gemini 3.x and later models. The model will ignore '
+      'this parameter if it is included in a request. Omit this parameter and '
+      'let the model manage sampling automatically.')
   final int? topK;
 
   /// The penalty for repeating the same words or phrases already generated in
@@ -1227,6 +1254,9 @@ abstract class BaseGenerationConfig {
   /// the model; see the
   /// [documentation](https://firebase.google.com/docs/vertex-ai/model-parameters?platform=flutter#configure-model-parameters-gemini)
   /// for more details.
+  @Deprecated(
+      'Not supported in Gemini 3.x and later models. Requests that include '
+      'this parameter will fail with a 400 error. Omit this parameter.')
   final double? presencePenalty;
 
   /// The penalty for repeating words or phrases, with the penalty increasing
@@ -1244,10 +1274,24 @@ abstract class BaseGenerationConfig {
   /// the model; see the
   /// [documentation](https://firebase.google.com/docs/vertex-ai/model-parameters?platform=flutter#configure-model-parameters-gemini)
   /// for more details.
+  @Deprecated(
+      'Not supported in Gemini 3.x and later models. Requests that include '
+      'this parameter will fail with a 400 error. Omit this parameter.')
   final double? frequencyPenalty;
 
   /// The list of desired response modalities.
   final List<ResponseModalities>? responseModalities;
+
+  /// The resolution to use for media inputs.
+  ///
+  /// Higher resolutions provide more detail to the model, at the cost of
+  /// increased token usage, latency, and cost.
+  ///
+  /// [MediaResolution.ultraHigh] is only supported on individual media parts.
+  final MediaResolution? mediaResolution;
+
+  /// The configuration parameters controlling the model's speech and audio generation.
+  final SpeechConfig? speechConfig;
 
   // ignore: public_member_api_docs
   Map<String, Object?> toJson() => {
@@ -1265,6 +1309,10 @@ abstract class BaseGenerationConfig {
         if (responseModalities case final responseModalities?)
           'responseModalities':
               responseModalities.map((modality) => modality.toJson()).toList(),
+        if (mediaResolution case final mediaResolution?)
+          'mediaResolution': mediaResolution.toJson(),
+        if (speechConfig case final speechConfig?)
+          'speechConfig': speechConfig.toJson(),
       };
 }
 
@@ -1281,6 +1329,8 @@ final class GenerationConfig extends BaseGenerationConfig {
     super.presencePenalty,
     super.frequencyPenalty,
     super.responseModalities,
+    super.mediaResolution,
+    super.speechConfig,
     this.responseMimeType,
     this.responseSchema,
     this.responseJsonSchema,
@@ -1426,7 +1476,7 @@ abstract interface class SerializationStrategy {
 }
 
 // ignore: public_member_api_docs
-final class VertexSerialization implements SerializationStrategy {
+final class AgentPlatformSerialization implements SerializationStrategy {
   /// Parse the json to [GenerateContentResponse]
   @override
   GenerateContentResponse parseGenerateContentResponse(Object jsonObject) {
@@ -1462,11 +1512,6 @@ final class VertexSerialization implements SerializationStrategy {
     }
 
     final totalTokens = jsonObject['totalTokens'] as int;
-    final totalBillableCharacters = switch (jsonObject) {
-      {'totalBillableCharacters': final int totalBillableCharacters} =>
-        totalBillableCharacters,
-      _ => null,
-    };
     final promptTokensDetails = switch (jsonObject) {
       {'promptTokensDetails': final List<Object?> promptTokensDetails} =>
         promptTokensDetails.map(_parseModalityTokenCount).toList(),
@@ -1475,7 +1520,6 @@ final class VertexSerialization implements SerializationStrategy {
 
     return CountTokensResponse(
       totalTokens,
-      totalBillableCharacters: totalBillableCharacters,
       promptTokensDetails: promptTokensDetails,
     );
   }

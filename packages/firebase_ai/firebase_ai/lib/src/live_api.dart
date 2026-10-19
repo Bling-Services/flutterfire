@@ -11,65 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import 'dart:developer';
+
 import 'api.dart';
 import 'content.dart';
 import 'error.dart';
-
-/// Configuration for a prebuilt voice.
-///
-/// This class allows specifying a voice by its name.
-class PrebuiltVoiceConfig {
-  // ignore: public_member_api_docs
-  const PrebuiltVoiceConfig({this.voiceName});
-
-  /// The voice name to use for speech synthesis.
-  ///
-  /// See https://cloud.google.com/text-to-speech/docs/chirp3-hd for names and
-  /// sound demos.
-  final String? voiceName;
-  // ignore: public_member_api_docs
-  Map<String, Object?> toJson() =>
-      {if (voiceName case final voiceName?) 'voice_name': voiceName};
-}
-
-/// Configuration for the voice to be used in speech synthesis.
-///
-/// This class currently supports using a prebuilt voice configuration.
-class VoiceConfig {
-  // ignore: public_member_api_docs
-  VoiceConfig({this.prebuiltVoiceConfig});
-
-  // ignore: public_member_api_docs
-  final PrebuiltVoiceConfig? prebuiltVoiceConfig;
-  // ignore: public_member_api_docs
-  Map<String, Object?> toJson() => {
-        if (prebuiltVoiceConfig case final prebuiltVoiceConfig?)
-          'prebuilt_voice_config': prebuiltVoiceConfig.toJson()
-      };
-}
-
-/// Configures speech synthesis settings.
-///
-/// Allows specifying the desired voice for speech synthesis.
-class SpeechConfig {
-  /// Creates a [SpeechConfig] instance.
-  ///
-  /// [voiceName] See https://cloud.google.com/text-to-speech/docs/chirp3-hd
-  /// for names and sound demos.
-  SpeechConfig({String? voiceName})
-      : voiceConfig = voiceName != null
-            ? VoiceConfig(
-                prebuiltVoiceConfig: PrebuiltVoiceConfig(voiceName: voiceName))
-            : null;
-
-  /// The voice config to use for speech synthesis.
-  final VoiceConfig? voiceConfig;
-  // ignore: public_member_api_docs
-  Map<String, Object?> toJson() => {
-        if (voiceConfig case final voiceConfig?)
-          'voice_config': voiceConfig.toJson()
-      };
-}
 
 /// The audio transcription configuration.
 class AudioTranscriptionConfig {
@@ -154,24 +100,156 @@ class SessionResumptionConfig {
       };
 }
 
+/// Configures model input behavior when generating content in the Live API via the realtime supported methods.
+final class RealtimeInputConfig {
+  /// Creates a [RealtimeInputConfig] instance.
+  RealtimeInputConfig({
+    this.automaticActivityDetection,
+    this.activityHandling,
+    this.turnCoverage,
+  });
+
+  /// Configures automatic activity detection on the model.
+  final ActivityDetectionConfig? automaticActivityDetection;
+
+  /// Defines how the model treats user input activity.
+  final ActivityHandling? activityHandling;
+
+  /// Defines which input is included in the user's turn, relative to the starting and ending of the activity.
+  final TurnCoverage? turnCoverage;
+
+  // ignore: public_member_api_docs
+  Map<String, Object?> toJson() => {
+        if (automaticActivityDetection case final automaticActivityDetection?)
+          'automatic_activity_detection': automaticActivityDetection.toJson(),
+        if (activityHandling case final activityHandling?)
+          'activity_handling': activityHandling.value,
+        if (turnCoverage case final turnCoverage?)
+          'turn_coverage': turnCoverage.value,
+      };
+}
+
+/// Configures the model's automatic detection of user activity.
+final class ActivityDetectionConfig {
+  /// Creates an [ActivityDetectionConfig] instance.
+  ActivityDetectionConfig({
+    Sensitivity? startSensitivity,
+    Sensitivity? endSensitivity,
+    int? prefixPaddingMS,
+    int? silenceDurationMS,
+  }) : this._(
+          startSensitivity: startSensitivity,
+          endSensitivity: endSensitivity,
+          prefixPaddingMS: prefixPaddingMS,
+          silenceDurationMS: silenceDurationMS,
+        );
+
+  ActivityDetectionConfig._({
+    this.startSensitivity,
+    this.endSensitivity,
+    this.prefixPaddingMS,
+    this.silenceDurationMS,
+    this.disabled,
+  });
+
+  /// Disables automatic activity detection.
+  factory ActivityDetectionConfig.disabled() {
+    return ActivityDetectionConfig._(
+      disabled: true,
+    );
+  }
+
+  /// Determines how likely the start of speech is detected.
+  final Sensitivity? startSensitivity;
+
+  /// Determines how likely the end of speech is detected.
+  final Sensitivity? endSensitivity;
+
+  /// How long detected speech should be present before start-of-speech is committed.
+  final int? prefixPaddingMS;
+
+  /// How long silence (or non-speech) should be present before end-of-speech is committed.
+  final int? silenceDurationMS;
+
+  /// Whether automatic activity detection is disabled.
+  final bool? disabled;
+
+  // ignore: public_member_api_docs
+  Map<String, Object?> toJson() => {
+        if (startSensitivity case final startSensitivity?)
+          'start_of_speech_sensitivity': 'START_${startSensitivity.value}',
+        if (endSensitivity case final endSensitivity?)
+          'end_of_speech_sensitivity': 'END_${endSensitivity.value}',
+        if (prefixPaddingMS case final prefixPaddingMS?)
+          'prefix_padding_ms': prefixPaddingMS,
+        if (silenceDurationMS case final silenceDurationMS?)
+          'silence_duration_ms': silenceDurationMS,
+        if (disabled case final disabled?) 'disabled': disabled,
+      };
+}
+
+/// How a model handles user input activity.
+enum ActivityHandling {
+  /// When the user sends input marking the start of activity, the model's current response will be cut-off immediately.
+  interrupt('START_OF_ACTIVITY_INTERRUPTS'),
+
+  /// When the user sends input marking the start of activity, the model will process it, but won't cut-off its current response.
+  noInterrupt('NO_INTERRUPTION');
+
+  const ActivityHandling(this.value);
+
+  /// The JSON wire string value.
+  final String value;
+}
+
+/// How the model considers which input is included in the user's turn.
+enum TurnCoverage {
+  /// The model will exclude inactivity (e.g, silence on the audio stream) from the user's input.
+  onlyActivity('TURN_INCLUDES_ONLY_ACTIVITY'),
+
+  /// The model will include all input (including inactivity) since the last turn as the user's input.
+  allInput('TURN_INCLUDES_ALL_INPUT'),
+
+  /// Includes audio activity and all video since the last turn.
+  audioActivityAndAllVideo('TURN_INCLUDES_AUDIO_ACTIVITY_AND_ALL_VIDEO');
+
+  const TurnCoverage(this.value);
+
+  /// The JSON wire string value.
+  final String value;
+}
+
+/// How sensitive the model interprets speech activity.
+enum Sensitivity {
+  /// The model will detect speech less often.
+  low('SENSITIVITY_LOW'),
+
+  /// The model will detect speech more often.
+  high('SENSITIVITY_HIGH');
+
+  const Sensitivity(this.value);
+
+  /// The JSON wire string value.
+  final String value;
+}
+
 /// Configures live generation settings.
 final class LiveGenerationConfig extends BaseGenerationConfig {
   // ignore: public_member_api_docs
   LiveGenerationConfig(
-      {this.speechConfig,
+      {super.speechConfig,
       this.inputAudioTranscription,
       this.outputAudioTranscription,
       this.contextWindowCompression,
+      this.realtimeInputConfig,
       super.responseModalities,
       super.maxOutputTokens,
       super.temperature,
       super.topP,
       super.topK,
       super.presencePenalty,
-      super.frequencyPenalty});
-
-  /// The speech configuration.
-  final SpeechConfig? speechConfig;
+      super.frequencyPenalty,
+      super.mediaResolution});
 
   /// The transcription of the input aligns with the input audio language.
   final AudioTranscriptionConfig? inputAudioTranscription;
@@ -183,11 +261,12 @@ final class LiveGenerationConfig extends BaseGenerationConfig {
   /// The context window compression configuration.
   final ContextWindowCompressionConfig? contextWindowCompression;
 
+  /// The realtime input configuration for voice activity detection and handling.
+  final RealtimeInputConfig? realtimeInputConfig;
+
   @override
   Map<String, Object?> toJson() => {
         ...super.toJson(),
-        if (speechConfig case final speechConfig?)
-          'speechConfig': speechConfig.toJson(),
       };
 }
 
@@ -196,6 +275,9 @@ final class LiveGenerationConfig extends BaseGenerationConfig {
 /// This class serves as a base for different types of server messages,
 /// such as content updates, tool calls, and tool call cancellations.
 /// Subclasses should implement specific message types.
+///
+/// The server can send message types this SDK does not recognize yet, so a
+/// `switch` over [LiveServerMessage] needs a default case.
 sealed class LiveServerMessage {}
 
 /// A message indicating that the live server setup is complete.
@@ -330,6 +412,13 @@ class SessionResumptionUpdate implements LiveServerMessage {
   final int? lastConsumedClientMessageIndex;
 }
 
+/// A server message this SDK does not recognize.
+///
+/// Handle it with a default case when switching over [LiveServerMessage].
+final class _UnknownLiveServerMessage implements LiveServerMessage {
+  const _UnknownLiveServerMessage();
+}
+
 /// A single response chunk received during a live content generation.
 ///
 /// It can contain generated content, function calls to be executed, or
@@ -347,36 +436,54 @@ class LiveServerResponse {
 class LiveClientRealtimeInput {
   /// Creates a [LiveClientRealtimeInput] instance.
   LiveClientRealtimeInput({
-    @Deprecated('Use audio, video, or text instead') this.mediaChunks,
     this.audio,
     this.video,
     this.text,
+    this.activityStart,
+    this.activityEnd,
   });
 
   /// Creates a [LiveClientRealtimeInput] with audio data.
   LiveClientRealtimeInput.audio(this.audio)
       // ignore: deprecated_member_use_from_same_package
-      : mediaChunks = null,
-        video = null,
-        text = null;
+      : video = null,
+        text = null,
+        activityStart = null,
+        activityEnd = null;
 
   /// Creates a [LiveClientRealtimeInput] with video data.
   LiveClientRealtimeInput.video(this.video)
       // ignore: deprecated_member_use_from_same_package
-      : mediaChunks = null,
-        audio = null,
-        text = null;
+      : audio = null,
+        text = null,
+        activityStart = null,
+        activityEnd = null;
 
   /// Creates a [LiveClientRealtimeInput] with text data.
   LiveClientRealtimeInput.text(this.text)
       // ignore: deprecated_member_use_from_same_package
-      : mediaChunks = null,
-        audio = null,
-        video = null;
+      : audio = null,
+        video = null,
+        activityStart = null,
+        activityEnd = null;
 
-  /// The list of media chunks.
-  @Deprecated('Use audio, video, or text instead')
-  final List<InlineDataPart>? mediaChunks;
+  /// Creates a [LiveClientRealtimeInput] with activity start signal.
+  LiveClientRealtimeInput.activityStart()
+      // ignore: deprecated_member_use_from_same_package
+      : audio = null,
+        video = null,
+        text = null,
+        activityStart = const {},
+        activityEnd = null;
+
+  /// Creates a [LiveClientRealtimeInput] with activity end signal.
+  LiveClientRealtimeInput.activityEnd()
+      // ignore: deprecated_member_use_from_same_package
+      : audio = null,
+        video = null,
+        text = null,
+        activityStart = null,
+        activityEnd = const {};
 
   /// Audio data.
   final InlineDataPart? audio;
@@ -387,15 +494,20 @@ class LiveClientRealtimeInput {
   /// Text data.
   final String? text;
 
+  /// Activity start signal.
+  final Map<String, dynamic>? activityStart;
+
+  /// Activity end signal.
+  final Map<String, dynamic>? activityEnd;
+
   // ignore: public_member_api_docs
   Map<String, dynamic> toJson() => {
         'realtime_input': {
-          'media_chunks':
-              // ignore: deprecated_member_use_from_same_package
-              mediaChunks?.map((e) => e.toMediaChunkJson()).toList(),
           if (audio != null) 'audio': audio!.toMediaChunkJson(),
           if (video != null) 'video': video!.toMediaChunkJson(),
           if (text != null) 'text': text,
+          if (activityStart != null) 'activity_start': activityStart,
+          if (activityEnd != null) 'activity_end': activityEnd,
         },
       };
 }
@@ -459,8 +571,8 @@ class LiveClientToolResponse {
 /// - `toolCallCancellation` messages to cancel pending function calls.
 /// - `setupComplete` messages signaling the completion of the server setup.
 ///
-/// If the JSON object does not match any of the expected formats, an
-/// [FirebaseAISdkException] is thrown.
+/// If the JSON object does not match any of the expected formats, it is
+/// returned as a [LiveServerMessage] that matches none of the public subtypes.
 ///
 /// Example:
 /// ```dart
@@ -482,7 +594,6 @@ class LiveClientToolResponse {
 ///
 /// Throws:
 /// - [FirebaseAIException]: If the JSON object contains an error message.
-/// - [FirebaseAISdkException]: If the JSON object does not match any expected format.
 ///
 /// Parameters:
 /// - [jsonObject]: The JSON object received from the live server.
@@ -569,6 +680,7 @@ LiveServerMessage _parseServerMessage(Object jsonObject) {
           sessionResumptionUpdateJson['lastConsumedClientMessageIndex'] as int?,
     );
   } else {
-    throw unhandledFormat('LiveServerMessage', json);
+    log('Ignoring unrecognized LiveServerMessage: ${json.keys}');
+    return const _UnknownLiveServerMessage();
   }
 }

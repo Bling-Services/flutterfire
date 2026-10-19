@@ -15,7 +15,7 @@ part of '../cloud_firestore.dart';
 ///
 /// FirebaseFirestore firestore = FirebaseFirestore.instanceFor(app: secondaryApp);
 /// ```
-class FirebaseFirestore extends FirebasePluginPlatform {
+class FirebaseFirestore extends FirebasePlugin {
   FirebaseFirestore._({
     required this.app,
     required this.databaseId,
@@ -369,6 +369,10 @@ class FirebaseFirestore extends FirebasePluginPlatform {
   /// https://firebase.google.com/docs/reference/firestore/indexes
   ///
   /// This API is in preview mode and is subject to change.
+  @Deprecated(
+    'Use persistentCacheIndexManager()?.enableIndexAutoCreation() instead. '
+    'Manual index configuration is deprecated in the native Firebase SDKs.',
+  )
   @experimental
   Future<void> setIndexConfigurationFromJSON(String json) async {
     return _delegate.setIndexConfiguration(json);

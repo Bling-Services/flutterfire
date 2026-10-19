@@ -185,29 +185,32 @@ class MethodChannelFirebaseFirestore extends FirebaseFirestorePlatform {
 
   @override
   Stream<void> snapshotsInSync() {
-    StreamSubscription<dynamic>? snapshotStreamSubscription;
     late StreamController<void> controller; // ignore: close_sinks
+    StreamSubscription<dynamic>? subscription;
 
     controller = StreamController<void>.broadcast(
-      onListen: () async {
-        final observerId = await pigeonChannel.snapshotsInSyncSetup(pigeonApp);
-
-        snapshotStreamSubscription =
-            MethodChannelFirebaseFirestore.snapshotsInSyncChannel(observerId)
-                .receiveGuardedBroadcastStream(
-          arguments: <String, dynamic>{'firestore': this},
-          onError: convertPlatformException,
-        ).listen(
-          (event) => controller.add(null),
+      onListen: () {
+        subscription = _snapshotsInSync().listen(
+          (_) => controller.add(null),
           onError: controller.addError,
         );
       },
       onCancel: () {
-        snapshotStreamSubscription?.cancel();
+        subscription?.cancel();
+        subscription = null;
       },
     );
 
     return controller.stream;
+  }
+
+  Stream<dynamic> _snapshotsInSync() async* {
+    final observerId = await pigeonChannel.snapshotsInSyncSetup(pigeonApp);
+    yield* MethodChannelFirebaseFirestore.snapshotsInSyncChannel(observerId)
+        .receiveGuardedBroadcastStream(
+      arguments: <String, dynamic>{'firestore': this},
+      onError: convertPlatformException,
+    );
   }
 
   @override
@@ -246,16 +249,20 @@ class MethodChannelFirebaseFirestore extends FirebaseFirestorePlatform {
     ).listen(
       (event) async {
         if (event['error'] != null) {
-          completer.completeError(
-            FirebaseException(
-              plugin: 'cloud_firestore',
-              code: event['error']['code'],
-              message: event['error']['message'],
-            ),
-          );
+          if (!completer.isCompleted) {
+            completer.completeError(
+              FirebaseException(
+                plugin: 'cloud_firestore',
+                code: event['error']['code'],
+                message: event['error']['message'],
+              ),
+            );
+          }
           return;
         } else if (event['complete'] == true) {
-          completer.complete(result);
+          if (!completer.isCompleted) {
+            completer.complete(result);
+          }
           return;
         }
 
@@ -271,6 +278,10 @@ class MethodChannelFirebaseFirestore extends FirebaseFirestorePlatform {
         try {
           result = await transactionHandler(transaction) as T;
         } catch (error, stack) {
+          if (completer.isCompleted) {
+            return;
+          }
+
           // Signal native that a user error occurred, and finish the
           // transaction
           await pigeonChannel.transactionStoreResult(
@@ -279,10 +290,18 @@ class MethodChannelFirebaseFirestore extends FirebaseFirestorePlatform {
             null,
           );
 
-          // Allow the [runTransaction] method to listen to an error.
+          // Native may report an error while the result is being stored.
+          if (completer.isCompleted) {
+            return;
+          }
 
+          // Allow the [runTransaction] method to listen to an error.
           completer.completeError(error, stack);
 
+          return;
+        }
+
+        if (completer.isCompleted) {
           return;
         }
 
